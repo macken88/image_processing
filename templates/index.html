@@ -623,8 +623,15 @@
         const thresholdModeSelect = analysisRoot?.querySelector('[data-threshold-mode]');
         const thresholdSpecificParams = new Set(['threshold_value', 'adaptive_block_size', 'adaptive_c']);
 
+        const setAnalysisFieldEditable = (field, editable) => {
+          const input = field.querySelector('input, select, textarea');
+          field.classList.toggle('is-disabled', !editable);
+          if (input) input.disabled = !editable;
+        };
+
         const updateAnalysisFields = () => {
           if (!analysisRoot || !analysisTypeSelect) return;
+
           const analysisType = analysisTypeSelect.value;
           const thresholdMode = thresholdModeSelect ? thresholdModeSelect.value : 'fixed';
           const activeByType = new Set(analysisUsage[analysisType] || []);
@@ -632,15 +639,19 @@
 
           analysisRoot.querySelectorAll('[data-analysis-param-field]').forEach((field) => {
             const param = field.getAttribute('data-analysis-param-field');
-            const input = field.querySelector('input, select, textarea');
-
             let editable = activeByType.has(param);
-            if (editable && thresholdSpecificParams.has(param)) {
+
+            // For threshold analysis, enable only the parameter subset needed by the chosen threshold mode.
+            if (analysisType === 'threshold' && thresholdSpecificParams.has(param)) {
               editable = activeByThresholdMode.has(param);
             }
 
-            field.classList.toggle('is-disabled', !editable);
-            if (input) input.disabled = !editable;
+            // For non-threshold analyses, all threshold-specific params must stay disabled.
+            if (analysisType !== 'threshold' && thresholdSpecificParams.has(param)) {
+              editable = false;
+            }
+
+            setAnalysisFieldEditable(field, editable);
           });
         };
 
