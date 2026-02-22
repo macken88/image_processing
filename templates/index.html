@@ -60,6 +60,11 @@
       .section h2 { margin: 0 0 10px; font-size: 1rem; }
       .hint { font-size: 0.85rem; color: var(--muted); }
       .top-actions { display: grid; gap: 10px; margin-top: 10px; }
+      .button-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
       .cache-note {
         margin-top: 10px;
         padding: 10px 12px;
@@ -104,6 +109,18 @@
         margin-bottom: 10px;
       }
       .stage-title { font-weight: 700; font-size: 0.95rem; }
+      .stage-details {
+        margin-top: 8px;
+        border-top: 1px dashed #d9cfbf;
+        padding-top: 10px;
+      }
+      .stage-details summary {
+        cursor: pointer;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: #4d443a;
+        margin-bottom: 10px;
+      }
       .toggle {
         display: inline-flex;
         align-items: center;
@@ -136,6 +153,11 @@
         color: var(--accent-ink);
         width: 100%;
       }
+      .button-secondary {
+        background: #f5efe4;
+        color: var(--ink);
+        border: 1px solid #d9cdb8;
+      }
       .error {
         border-radius: 12px;
         padding: 12px 14px;
@@ -158,7 +180,7 @@
         display: grid;
         gap: 16px;
       }
-      .preview-grid.stack-horizontal { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .preview-grid.stack-horizontal { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
       .preview-grid.stack-vertical { grid-template-columns: 1fr; }
       .thumb-grid.stack-horizontal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .thumb-grid.stack-vertical { grid-template-columns: 1fr; }
@@ -263,7 +285,10 @@
               <div class="cache-note">前回画像を保持中: <strong>{{ cached_filename }}</strong>（未選択で実行するとこれを再利用）</div>
               {% endif %}
               <div class="top-actions">
-                <button type="submit">前処理 + 本解析を実行</button>
+                <div class="button-row">
+                  <button type="submit" name="submit_action" value="pipeline_only" class="button-secondary">前処理のみ実行</button>
+                  <button type="submit" name="submit_action" value="pipeline_and_analysis">前処理 + 本解析を実行</button>
+                </div>
               </div>
             </div>
 
@@ -279,48 +304,51 @@
                       <input type="checkbox" name="{{ stage.prefix }}_enabled" data-stage-enabled {% if stage.enabled %}checked{% endif %} />有効
                     </label>
                   </div>
+                  <details class="stage-details" {% if stage.enabled %}open{% endif %}>
+                    <summary>パラメータを表示 / 折りたたむ</summary>
 
-                  <div class="field">
-                    <label for="{{ stage.prefix }}_operation">処理</label>
-                    <select id="{{ stage.prefix }}_operation" name="{{ stage.prefix }}_operation" data-stage-operation>
-                      {% for value, label in pipeline_operation_options %}
-                      <option value="{{ value }}" {% if stage.operation == value %}selected{% endif %}>{{ label }}</option>
-                      {% endfor %}
-                    </select>
-                  </div>
+                    <div class="field">
+                      <label for="{{ stage.prefix }}_operation">処理</label>
+                      <select id="{{ stage.prefix }}_operation" name="{{ stage.prefix }}_operation" data-stage-operation>
+                        {% for value, label in pipeline_operation_options %}
+                        <option value="{{ value }}" {% if stage.operation == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                      </select>
+                    </div>
 
-                  <div class="params-grid">
-                    <div class="field" data-param-field="brightness">
-                      <label for="{{ stage.prefix }}_brightness">明るさ</label>
-                      <input id="{{ stage.prefix }}_brightness" type="number" name="{{ stage.prefix }}_brightness" min="-255" max="255" value="{{ stage.brightness }}" />
-                      <small>`brightness` 用</small>
+                    <div class="params-grid">
+                      <div class="field" data-param-field="brightness">
+                        <label for="{{ stage.prefix }}_brightness">明るさ</label>
+                        <input id="{{ stage.prefix }}_brightness" type="number" name="{{ stage.prefix }}_brightness" min="-255" max="255" value="{{ stage.brightness }}" />
+                        <small>`brightness` 用</small>
+                      </div>
+                      <div class="field" data-param-field="contrast">
+                        <label for="{{ stage.prefix }}_contrast">コントラスト倍率</label>
+                        <input id="{{ stage.prefix }}_contrast" type="number" step="0.1" min="0.1" max="4.0" name="{{ stage.prefix }}_contrast" value="{{ stage.contrast }}" />
+                        <small>`contrast` 用</small>
+                      </div>
+                      <div class="field" data-param-field="gamma">
+                        <label for="{{ stage.prefix }}_gamma">ガンマ値</label>
+                        <input id="{{ stage.prefix }}_gamma" type="number" step="0.1" min="0.1" max="5.0" name="{{ stage.prefix }}_gamma" value="{{ stage.gamma }}" />
+                        <small>`gamma` 用</small>
+                      </div>
+                      <div class="field" data-param-field="hue_deg">
+                        <label for="{{ stage.prefix }}_hue_deg">色相シフト（度）</label>
+                        <input id="{{ stage.prefix }}_hue_deg" type="number" min="-180" max="180" name="{{ stage.prefix }}_hue_deg" value="{{ stage.hue_deg }}" />
+                        <small>`hue_shift` 用</small>
+                      </div>
+                      <div class="field" data-param-field="saturation_percent">
+                        <label for="{{ stage.prefix }}_saturation_percent">彩度（%）</label>
+                        <input id="{{ stage.prefix }}_saturation_percent" type="number" min="0" max="300" name="{{ stage.prefix }}_saturation_percent" value="{{ stage.saturation_percent }}" />
+                        <small>`saturation` 用</small>
+                      </div>
+                      <div class="field" data-param-field="blur_kernel">
+                        <label for="{{ stage.prefix }}_blur_kernel">ぼかしカーネル（奇数）</label>
+                        <input id="{{ stage.prefix }}_blur_kernel" type="number" min="1" max="99" name="{{ stage.prefix }}_blur_kernel" value="{{ stage.blur_kernel }}" />
+                        <small>`gaussian_blur` 用</small>
+                      </div>
                     </div>
-                    <div class="field" data-param-field="contrast">
-                      <label for="{{ stage.prefix }}_contrast">コントラスト倍率</label>
-                      <input id="{{ stage.prefix }}_contrast" type="number" step="0.1" min="0.1" max="4.0" name="{{ stage.prefix }}_contrast" value="{{ stage.contrast }}" />
-                      <small>`contrast` 用</small>
-                    </div>
-                    <div class="field" data-param-field="gamma">
-                      <label for="{{ stage.prefix }}_gamma">ガンマ値</label>
-                      <input id="{{ stage.prefix }}_gamma" type="number" step="0.1" min="0.1" max="5.0" name="{{ stage.prefix }}_gamma" value="{{ stage.gamma }}" />
-                      <small>`gamma` 用</small>
-                    </div>
-                    <div class="field" data-param-field="hue_deg">
-                      <label for="{{ stage.prefix }}_hue_deg">色相シフト（度）</label>
-                      <input id="{{ stage.prefix }}_hue_deg" type="number" min="-180" max="180" name="{{ stage.prefix }}_hue_deg" value="{{ stage.hue_deg }}" />
-                      <small>`hue_shift` 用</small>
-                    </div>
-                    <div class="field" data-param-field="saturation_percent">
-                      <label for="{{ stage.prefix }}_saturation_percent">彩度（%）</label>
-                      <input id="{{ stage.prefix }}_saturation_percent" type="number" min="0" max="300" name="{{ stage.prefix }}_saturation_percent" value="{{ stage.saturation_percent }}" />
-                      <small>`saturation` 用</small>
-                    </div>
-                    <div class="field" data-param-field="blur_kernel">
-                      <label for="{{ stage.prefix }}_blur_kernel">ぼかしカーネル（奇数）</label>
-                      <input id="{{ stage.prefix }}_blur_kernel" type="number" min="1" max="99" name="{{ stage.prefix }}_blur_kernel" value="{{ stage.blur_kernel }}" />
-                      <small>`gaussian_blur` 用</small>
-                    </div>
-                  </div>
+                  </details>
                 </div>
                 {% endfor %}
               </div>
@@ -445,7 +473,7 @@
 
           <section class="column">
             <div class="section">
-              <h2>結果プレビュー（原画像 / 前処理結果 / 本解析結果）</h2>
+              <h2>結果プレビュー</h2>
               {% if result %}
               <div class="image-grid preview-grid {{ result.preview_layout_class }}">
                 <div class="image-card">
@@ -456,20 +484,30 @@
                   <h3>前処理結果（本解析入力）</h3>
                   <img src="{{ result.final_src }}" alt="前処理結果プレビュー" />
                 </div>
+                {% if result.analysis %}
+                <div class="image-card">
+                  <h3>{{ result.analysis.input_gray_label }}</h3>
+                  <img src="{{ result.analysis.input_gray_src }}" alt="解析前グレースケール画像プレビュー" />
+                </div>
                 <div class="image-card">
                   <h3>{{ result.analysis.main_output_label }}</h3>
                   <img src="{{ result.analysis.main_output_src }}" alt="本解析結果プレビュー" />
                 </div>
+                {% endif %}
               </div>
               {% if result.used_cached_image %}
               <p class="hint" style="margin-top:10px;">前回アップロード画像を再利用して実行しました。</p>
               {% endif %}
+              {% if not result.analysis %}
+              <p class="hint" style="margin-top:10px;">今回は「前処理のみ実行」を選択したため、本解析は実行していません。</p>
+              {% endif %}
               {% else %}
-              <p class="hint">画像をアップロードして「前処理 + 本解析を実行」を押すと、ここに結果が表示されます。</p>
+              <p class="hint">画像をアップロードして「前処理のみ実行」または「前処理 + 本解析を実行」を押すと、ここに結果が表示されます。</p>
               {% endif %}
             </div>
 
             {% if result %}
+            {% if result.analysis %}
             <div class="section">
               <h2>本解析結果サマリ</h2>
               <div class="status-pill {% if result.analysis.status == 'no_detection' %}warn{% endif %}">
@@ -517,6 +555,7 @@
               <p class="hint">この本解析タイプには補助画像はありません。</p>
               {% endif %}
             </div>
+            {% endif %}
 
             <div class="section">
               <h2>前処理の実行ステップ</h2>
@@ -534,7 +573,9 @@
                 {% endfor %}
               </ol>
               {% else %}
-              <p class="hint">有効な前処理ステージがないため、原画像がそのまま本解析に入力されています。</p>
+              <p class="hint">
+                有効な前処理ステージがないため、原画像がそのまま{% if result.analysis %}本解析に入力{% else %}前処理結果{% endif %}として扱われています。
+              </p>
               {% endif %}
             </div>
 
@@ -576,8 +617,10 @@
                     <dt>{{ key }}</dt>
                     <dd>{{ value }}</dd>
                     {% endfor %}
+                    {% if result.analysis %}
                     <dt>本解析主結果</dt>
                     <dd>{{ result.analysis.main_output_info.size }} / ch={{ result.analysis.main_output_info.channels }} / {{ result.analysis.main_output_info.dtype }}</dd>
+                    {% endif %}
                   </dl>
                 </div>
               </div>

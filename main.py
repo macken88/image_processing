@@ -742,6 +742,12 @@ def serialize_analysis_result(raw: dict[str, object], *, layout_class: str) -> d
     }
 
 
+def normalize_submit_action(value: str) -> str:
+    if value in {"pipeline_only", "pipeline_and_analysis"}:
+        return value
+    return "pipeline_and_analysis"
+
+
 def run_analysis(image: np.ndarray, settings: dict[str, int | float | str]) -> dict[str, object]:
     analysis_type = str(settings["analysis_type"])
     if analysis_type == "edge_canny":
@@ -785,6 +791,7 @@ def process_image():
 
     pipeline_stages = parse_pipeline_stages(request.form)
     analysis_settings = parse_analysis_settings(request.form)
+    submit_action = normalize_submit_action(str(request.form.get("submit_action", "pipeline_and_analysis")))
 
     file = request.files.get("image")
     has_new_upload = file is not None and file.filename != ""
@@ -816,13 +823,19 @@ def process_image():
         preprocessed_image, executed_steps, stage_previews = run_pipeline(original, pipeline_stages)
         is_landscape = original.shape[1] >= original.shape[0]
         layout_class = "stack-vertical" if is_landscape else "stack-horizontal"
-
-        analysis_raw = run_analysis(preprocessed_image, analysis_settings)
-        analysis = serialize_analysis_result(analysis_raw, layout_class=layout_class)
+        analysis: dict[str, object] | None = None
+        if submit_action == "pipeline_and_analysis":
+            analysis_raw = run_analysis(preprocessed_image, analysis_settings)
+            analysis = serialize_analysis_result(analysis_raw, layout_class=layout_class)
+            analysis_input_gray = to_gray(preprocessed_image)
+            analysis["input_gray_src"] = encode_image_data_url(analysis_input_gray)
+            analysis["input_gray_label"] = "解析前グレースケール画像"
+            analysis["input_gray_info"] = summarize_image(analysis_input_gray)
 
         result = {
             "filename": filename,
             "used_cached_image": not has_new_upload,
+            "submit_action": submit_action,
             "original_src": encode_image_data_url(original),
             "final_src": encode_image_data_url(preprocessed_image),
             "executed_steps": executed_steps,
