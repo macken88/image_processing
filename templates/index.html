@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Image Processing GUI</title>
+    <title>OpenCV 前処理 + 本解析 GUI</title>
     <style>
       :root {
         --bg: #f3f1ea;
@@ -13,12 +13,13 @@
         --line: #d8d0c4;
         --accent: #d56b2d;
         --accent-ink: #ffffff;
+        --soft: #f7f3eb;
+        --ok-bg: #eef8e8;
+        --ok-line: #c7ddb3;
+        --warn-bg: #fff5e8;
+        --warn-line: #eccda7;
       }
-
-      * {
-        box-sizing: border-box;
-      }
-
+      * { box-sizing: border-box; }
       body {
         margin: 0;
         min-height: 100vh;
@@ -32,111 +33,675 @@
         place-items: center;
         padding: 24px;
       }
-
       .panel {
-        width: min(680px, 100%);
+        width: min(1800px, 100%);
         background: color-mix(in srgb, var(--panel) 92%, white);
         border: 1px solid var(--line);
         border-radius: 16px;
         box-shadow: 0 14px 40px rgba(31, 26, 20, 0.08);
         padding: 24px;
       }
-
-      h1 {
-        margin: 0 0 8px;
-        font-size: clamp(1.4rem, 3vw, 2rem);
-      }
-
-      p {
-        margin: 0 0 16px;
-        color: var(--muted);
-      }
-
-      form {
+      h1 { margin: 0 0 8px; font-size: clamp(1.4rem, 3vw, 2rem); }
+      p { margin: 0; color: var(--muted); }
+      form { margin-top: 18px; display: grid; gap: 16px; }
+      .layout {
         display: grid;
-        gap: 12px;
+        grid-template-columns: 520px minmax(0, 1fr);
+        gap: 20px;
+        align-items: start;
       }
-
+      .column { display: grid; gap: 16px; }
+      .section {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px;
+      }
+      .section h2 { margin: 0 0 10px; font-size: 1rem; }
+      .hint { font-size: 0.85rem; color: var(--muted); }
+      .top-actions { display: grid; gap: 10px; margin-top: 10px; }
+      .button-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .cache-note {
+        margin-top: 10px;
+        padding: 10px 12px;
+        border: 1px solid #ddd0bd;
+        background: #faf6ef;
+        border-radius: 10px;
+        font-size: 0.9rem;
+      }
+      .field { display: grid; gap: 6px; }
+      .field + .field { margin-top: 10px; }
+      .field label { font-size: 0.9rem; font-weight: 700; }
+      .field input,
+      .field select {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: #fff;
+        font: inherit;
+      }
       input[type="file"] {
         border: 1px dashed var(--line);
         border-radius: 12px;
         padding: 14px;
         background: #fff;
       }
-
+      .pipeline-list,
+      .analysis-params,
+      .step-list { display: grid; gap: 12px; }
+      .stage-card,
+      .analysis-card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--soft);
+        padding: 12px;
+      }
+      .stage-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .stage-title { font-weight: 700; font-size: 0.95rem; }
+      .stage-details {
+        margin-top: 8px;
+        border-top: 1px dashed #d9cfbf;
+        padding-top: 10px;
+      }
+      .stage-details summary {
+        cursor: pointer;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: #4d443a;
+        margin-bottom: 10px;
+      }
+      .toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85rem;
+      }
+      .toggle input { width: auto; margin: 0; }
+      .params-grid,
+      .analysis-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .params-grid .field,
+      .analysis-grid .field { margin: 0; }
+      .field small { color: var(--muted); font-size: 0.75rem; }
+      .field.is-disabled { opacity: 0.45; }
+      .field.is-disabled input,
+      .field.is-disabled select {
+        background: #f5f1ea;
+        cursor: not-allowed;
+      }
       button {
         border: 0;
         border-radius: 999px;
-        padding: 10px 16px;
+        padding: 12px 16px;
         font-weight: 700;
         cursor: pointer;
         background: var(--accent);
         color: var(--accent-ink);
-        width: fit-content;
+        width: 100%;
       }
-
-      .error,
-      .result {
-        margin-top: 16px;
+      .button-secondary {
+        background: #f5efe4;
+        color: var(--ink);
+        border: 1px solid #d9cdb8;
+      }
+      .error {
         border-radius: 12px;
         padding: 12px 14px;
-      }
-
-      .error {
         background: #fff1ec;
         border: 1px solid #efc5b6;
         color: #822e10;
       }
-
-      .result {
-        background: #f5f9ef;
-        border: 1px solid #cadbb3;
+      .info-banner {
+        margin-top: 10px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-size: 0.9rem;
       }
-
+      .info-banner.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+      .info-banner.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+      .image-grid,
+      .thumb-grid,
+      .analysis-debug-grid,
+      .meta-grid {
+        display: grid;
+        gap: 16px;
+      }
+      .preview-grid.stack-horizontal { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+      .preview-grid.stack-vertical { grid-template-columns: 1fr; }
+      .thumb-grid.stack-horizontal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .thumb-grid.stack-vertical { grid-template-columns: 1fr; }
+      .analysis-debug-grid.stack-horizontal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .analysis-debug-grid.stack-vertical { grid-template-columns: 1fr; }
+      .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .image-card,
+      .meta-card,
+      .thumb-card {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+      }
+      .image-card h3,
+      .meta-card h3 { margin: 0 0 8px; font-size: 0.95rem; }
+      .thumb-card h4 { margin: 0 0 8px; font-size: 0.9rem; }
+      .image-card img,
+      .thumb-card img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 8px;
+        border: 1px solid #eee6da;
+        background: linear-gradient(45deg, #f6f0e6, #fff);
+      }
       dl {
         margin: 0;
         display: grid;
         grid-template-columns: max-content 1fr;
         gap: 8px 12px;
       }
-
-      dt {
-        font-weight: 700;
-      }
-
-      dd {
+      dt { font-weight: 700; }
+      dd { margin: 0; }
+      .step-list {
         margin: 0;
+        padding-left: 1.2rem;
+      }
+      .step-item {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px;
+      }
+      .step-item strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+      .step-item .mini {
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      .thumb-card p { margin-top: 8px; font-size: 0.8rem; }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        border: 1px solid #ddd0bd;
+        background: #fbf8f2;
+        padding: 4px 10px;
+        font-size: 0.85rem;
+      }
+      .status-pill.warn {
+        background: #fff5e8;
+        border-color: #eccda7;
+      }
+      @media (max-width: 1080px) {
+        .layout { grid-template-columns: 1fr; }
+        .preview-grid,
+        .image-grid,
+        .meta-grid,
+        .thumb-grid,
+        .analysis-debug-grid,
+        .params-grid,
+        .analysis-grid {
+          grid-template-columns: 1fr !important;
+        }
       }
     </style>
   </head>
   <body>
     <main class="panel">
-      <h1>画像処理GUIアプリ（開発用）</h1>
-      <p>まずは画像アップロードと基本情報の確認ができる雛形です。</p>
+      <h1>OpenCV 前処理 + 本解析 検証 GUI</h1>
+      <p>
+        4段までの前処理パイプラインの後に、本解析（エッジ検出 / 二値化 / Hough線 / Hough円）を1つ選んで実行し、
+        前処理パラメータが解析結果に与える影響を手動で確認できます。
+      </p>
 
-      <form action="/inspect" method="post" enctype="multipart/form-data">
-        <input type="file" name="image" accept="image/*" />
-        <button type="submit">画像を確認</button>
+      <form action="/process" method="post" enctype="multipart/form-data">
+        {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+        <div class="layout">
+          <section class="column">
+            <div class="section">
+              <h2>入力画像</h2>
+              <div class="field">
+                <label for="image">画像ファイル（新しい画像を選ぶと置き換え）</label>
+                <input id="image" type="file" name="image" accept="image/*" />
+              </div>
+              {% if has_cached_image %}
+              <div class="cache-note">前回画像を保持中: <strong>{{ cached_filename }}</strong>（未選択で実行するとこれを再利用）</div>
+              {% endif %}
+              <div class="top-actions">
+                <div class="button-row">
+                  <button type="submit" name="submit_action" value="pipeline_only" class="button-secondary">前処理のみ実行</button>
+                  <button type="submit" name="submit_action" value="pipeline_and_analysis">前処理 + 本解析を実行</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <h2>前処理パイプライン（最大 {{ pipeline_stages|length }} 段）</h2>
+              <p class="hint">各ステージは有効/無効を切り替えできます。使用する処理のパラメータだけ編集可能になります。</p>
+              <div class="pipeline-list">
+                {% for stage in pipeline_stages %}
+                <div class="stage-card" data-stage-card>
+                  <div class="stage-header">
+                    <div class="stage-title">Stage {{ stage.index }}</div>
+                    <label class="toggle">
+                      <input type="checkbox" name="{{ stage.prefix }}_enabled" data-stage-enabled {% if stage.enabled %}checked{% endif %} />有効
+                    </label>
+                  </div>
+                  <details class="stage-details" {% if stage.enabled %}open{% endif %}>
+                    <summary>パラメータを表示 / 折りたたむ</summary>
+
+                    <div class="field">
+                      <label for="{{ stage.prefix }}_operation">処理</label>
+                      <select id="{{ stage.prefix }}_operation" name="{{ stage.prefix }}_operation" data-stage-operation>
+                        {% for value, label in pipeline_operation_options %}
+                        <option value="{{ value }}" {% if stage.operation == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+
+                    <div class="params-grid">
+                      <div class="field" data-param-field="brightness">
+                        <label for="{{ stage.prefix }}_brightness">明るさ</label>
+                        <input id="{{ stage.prefix }}_brightness" type="number" name="{{ stage.prefix }}_brightness" min="-255" max="255" value="{{ stage.brightness }}" />
+                        <small>`brightness` 用</small>
+                      </div>
+                      <div class="field" data-param-field="contrast">
+                        <label for="{{ stage.prefix }}_contrast">コントラスト倍率</label>
+                        <input id="{{ stage.prefix }}_contrast" type="number" step="0.1" min="0.1" max="4.0" name="{{ stage.prefix }}_contrast" value="{{ stage.contrast }}" />
+                        <small>`contrast` 用</small>
+                      </div>
+                      <div class="field" data-param-field="gamma">
+                        <label for="{{ stage.prefix }}_gamma">ガンマ値</label>
+                        <input id="{{ stage.prefix }}_gamma" type="number" step="0.1" min="0.1" max="5.0" name="{{ stage.prefix }}_gamma" value="{{ stage.gamma }}" />
+                        <small>`gamma` 用</small>
+                      </div>
+                      <div class="field" data-param-field="hue_deg">
+                        <label for="{{ stage.prefix }}_hue_deg">色相シフト（度）</label>
+                        <input id="{{ stage.prefix }}_hue_deg" type="number" min="-180" max="180" name="{{ stage.prefix }}_hue_deg" value="{{ stage.hue_deg }}" />
+                        <small>`hue_shift` 用</small>
+                      </div>
+                      <div class="field" data-param-field="saturation_percent">
+                        <label for="{{ stage.prefix }}_saturation_percent">彩度（%）</label>
+                        <input id="{{ stage.prefix }}_saturation_percent" type="number" min="0" max="300" name="{{ stage.prefix }}_saturation_percent" value="{{ stage.saturation_percent }}" />
+                        <small>`saturation` 用</small>
+                      </div>
+                      <div class="field" data-param-field="blur_kernel">
+                        <label for="{{ stage.prefix }}_blur_kernel">ぼかしカーネル（奇数）</label>
+                        <input id="{{ stage.prefix }}_blur_kernel" type="number" min="1" max="99" name="{{ stage.prefix }}_blur_kernel" value="{{ stage.blur_kernel }}" />
+                        <small>`gaussian_blur` 用</small>
+                      </div>
+                    </div>
+                  </details>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="section" data-analysis-settings>
+              <h2>本解析設定</h2>
+              <p class="hint">本解析タイプに応じて必要なパラメータだけ編集可能になります。</p>
+
+              <div class="field">
+                <label for="analysis_type">本解析タイプ</label>
+                <select id="analysis_type" name="analysis_type" data-analysis-type>
+                  {% for value, label in analysis_options %}
+                  <option value="{{ value }}" {% if analysis_settings.analysis_type == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="analysis-card" style="margin-top: 12px;">
+                <div class="analysis-grid">
+                  <div class="field" data-analysis-param-field="canny_low">
+                    <label for="canny_low">Canny low</label>
+                    <input id="canny_low" type="number" name="canny_low" min="0" max="500" value="{{ analysis_settings.canny_low }}" />
+                    <small>`edge_canny` 用</small>
+                  </div>
+                  <div class="field" data-analysis-param-field="canny_high">
+                    <label for="canny_high">Canny high</label>
+                    <input id="canny_high" type="number" name="canny_high" min="1" max="500" value="{{ analysis_settings.canny_high }}" />
+                    <small>`edge_canny` 用</small>
+                  </div>
+
+                  <div class="field" data-analysis-param-field="threshold_mode">
+                    <label for="threshold_mode">二値化モード</label>
+                    <select id="threshold_mode" name="threshold_mode" data-threshold-mode>
+                      {% for value, label in threshold_mode_options %}
+                      <option value="{{ value }}" {% if analysis_settings.threshold_mode == value %}selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                    <small>`threshold` 用</small>
+                  </div>
+                  <div class="field" data-analysis-param-field="threshold_value">
+                    <label for="threshold_value">固定閾値（0-255）</label>
+                    <input id="threshold_value" type="number" name="threshold_value" min="0" max="255" value="{{ analysis_settings.threshold_value }}" />
+                    <small>`threshold` 固定閾値用</small>
+                  </div>
+                  <div class="field" data-analysis-param-field="adaptive_block_size">
+                    <label for="adaptive_block_size">適応的 block size（奇数）</label>
+                    <input id="adaptive_block_size" type="number" name="adaptive_block_size" min="3" max="99" value="{{ analysis_settings.adaptive_block_size }}" />
+                    <small>`threshold` 適応的用</small>
+                  </div>
+                  <div class="field" data-analysis-param-field="adaptive_c">
+                    <label for="adaptive_c">適応的 C 値</label>
+                    <input id="adaptive_c" type="number" name="adaptive_c" min="-50" max="50" value="{{ analysis_settings.adaptive_c }}" />
+                    <small>`threshold` 適応的用</small>
+                  </div>
+
+                  <div class="field" data-analysis-param-field="line_canny_low">
+                    <label for="line_canny_low">線検出 Canny low</label>
+                    <input id="line_canny_low" type="number" name="line_canny_low" min="0" max="500" value="{{ analysis_settings.line_canny_low }}" />
+                    <small>`hough_lines` 用</small>
+                  </div>
+                  <div class="field" data-analysis-param-field="line_canny_high">
+                    <label for="line_canny_high">線検出 Canny high</label>
+                    <input id="line_canny_high" type="number" name="line_canny_high" min="1" max="500" value="{{ analysis_settings.line_canny_high }}" />
+                    <small>`hough_lines` 用</small>
+                  </div>
+                  <div class="field" data-analysis-param-field="hough_threshold">
+                    <label for="hough_threshold">Hough threshold</label>
+                    <input id="hough_threshold" type="number" name="hough_threshold" min="1" max="500" value="{{ analysis_settings.hough_threshold }}" />
+                    <small>`hough_lines` 用</small>
+                  </div>
+                  <div class="field" data-analysis-param-field="hough_min_line_length">
+                    <label for="hough_min_line_length">Hough min line length</label>
+                    <input id="hough_min_line_length" type="number" name="hough_min_line_length" min="1" max="2000" value="{{ analysis_settings.hough_min_line_length }}" />
+                    <small>`hough_lines` 用</small>
+                  </div>
+                  <div class="field" data-analysis-param-field="hough_max_line_gap">
+                    <label for="hough_max_line_gap">Hough max line gap</label>
+                    <input id="hough_max_line_gap" type="number" name="hough_max_line_gap" min="0" max="500" value="{{ analysis_settings.hough_max_line_gap }}" />
+                    <small>`hough_lines` 用</small>
+                  </div>
+
+                  <div class="field" data-analysis-param-field="circle_median_blur_kernel">
+                    <label for="circle_median_blur_kernel">円検出 median blur（奇数）</label>
+                    <input id="circle_median_blur_kernel" type="number" name="circle_median_blur_kernel" min="1" max="99" value="{{ analysis_settings.circle_median_blur_kernel }}" />
+                    <small>`hough_circles` 用</small>
+                  </div>
+                  <div class="field" data-analysis-param-field="circle_dp">
+                    <label for="circle_dp">circle dp</label>
+                    <input id="circle_dp" type="number" step="0.1" name="circle_dp" min="1.0" max="5.0" value="{{ analysis_settings.circle_dp }}" />
+                    <small>`hough_circles` 用</small>
+                  </div>
+                  <div class="field" data-analysis-param-field="circle_min_dist">
+                    <label for="circle_min_dist">circle minDist</label>
+                    <input id="circle_min_dist" type="number" name="circle_min_dist" min="1" max="2000" value="{{ analysis_settings.circle_min_dist }}" />
+                    <small>`hough_circles` 用</small>
+                  </div>
+                  <div class="field" data-analysis-param-field="circle_param1">
+                    <label for="circle_param1">circle param1</label>
+                    <input id="circle_param1" type="number" name="circle_param1" min="1" max="500" value="{{ analysis_settings.circle_param1 }}" />
+                    <small>`hough_circles` 用</small>
+                  </div>
+                  <div class="field" data-analysis-param-field="circle_param2">
+                    <label for="circle_param2">circle param2</label>
+                    <input id="circle_param2" type="number" name="circle_param2" min="1" max="500" value="{{ analysis_settings.circle_param2 }}" />
+                    <small>`hough_circles` 用</small>
+                  </div>
+                  <div class="field" data-analysis-param-field="circle_min_radius">
+                    <label for="circle_min_radius">circle minRadius</label>
+                    <input id="circle_min_radius" type="number" name="circle_min_radius" min="0" max="5000" value="{{ analysis_settings.circle_min_radius }}" />
+                    <small>`hough_circles` 用</small>
+                  </div>
+                  <div class="field" data-analysis-param-field="circle_max_radius">
+                    <label for="circle_max_radius">circle maxRadius（0=制限なし）</label>
+                    <input id="circle_max_radius" type="number" name="circle_max_radius" min="0" max="5000" value="{{ analysis_settings.circle_max_radius }}" />
+                    <small>`hough_circles` 用</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="column">
+            <div class="section">
+              <h2>結果プレビュー</h2>
+              {% if result %}
+              <div class="image-grid preview-grid {{ result.preview_layout_class }}">
+                <div class="image-card">
+                  <h3>原画像</h3>
+                  <img src="{{ result.original_src }}" alt="原画像プレビュー" />
+                </div>
+                <div class="image-card">
+                  <h3>前処理結果（本解析入力）</h3>
+                  <img src="{{ result.final_src }}" alt="前処理結果プレビュー" />
+                </div>
+                {% if result.analysis %}
+                <div class="image-card">
+                  <h3>{{ result.analysis.input_gray_label }}</h3>
+                  <img src="{{ result.analysis.input_gray_src }}" alt="解析前グレースケール画像プレビュー" />
+                </div>
+                <div class="image-card">
+                  <h3>{{ result.analysis.main_output_label }}</h3>
+                  <img src="{{ result.analysis.main_output_src }}" alt="本解析結果プレビュー" />
+                </div>
+                {% endif %}
+              </div>
+              {% if result.used_cached_image %}
+              <p class="hint" style="margin-top:10px;">前回アップロード画像を再利用して実行しました。</p>
+              {% endif %}
+              {% if not result.analysis %}
+              <p class="hint" style="margin-top:10px;">今回は「前処理のみ実行」を選択したため、本解析は実行していません。</p>
+              {% endif %}
+              {% else %}
+              <p class="hint">画像をアップロードして「前処理のみ実行」または「前処理 + 本解析を実行」を押すと、ここに結果が表示されます。</p>
+              {% endif %}
+            </div>
+
+            {% if result %}
+            {% if result.analysis %}
+            <div class="section">
+              <h2>本解析結果サマリ</h2>
+              <div class="status-pill {% if result.analysis.status == 'no_detection' %}warn{% endif %}">
+                本解析: {{ result.analysis.label }} / 状態: {{ result.analysis.status }}
+              </div>
+              {% if result.analysis.status_message %}
+              <div class="info-banner warn">{{ result.analysis.status_message }}</div>
+              {% endif %}
+
+              <div class="meta-grid" style="margin-top: 12px;">
+                <div class="meta-card">
+                  <h3>判定補助指標</h3>
+                  <dl>
+                    {% for key, value in result.analysis.summary.items() %}
+                    <dt>{{ key }}</dt>
+                    <dd>{{ value }}</dd>
+                    {% endfor %}
+                  </dl>
+                </div>
+                <div class="meta-card">
+                  <h3>本解析パラメータ（実適用）</h3>
+                  <dl>
+                    {% for key, value in result.analysis.params.items() %}
+                    <dt>{{ key }}</dt>
+                    <dd>{{ value }}</dd>
+                    {% endfor %}
+                  </dl>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <h2>本解析の補助画像</h2>
+              {% if result.analysis.debug_outputs %}
+              <div class="analysis-debug-grid {{ result.analysis.layout_class }}">
+                {% for debug in result.analysis.debug_outputs %}
+                <div class="thumb-card">
+                  <h4>{{ debug.label }}</h4>
+                  <img src="{{ debug.src }}" alt="{{ debug.label }}" />
+                  <p>{{ debug.image_info.size }} / ch={{ debug.image_info.channels }} / {{ debug.image_info.dtype }}</p>
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <p class="hint">この本解析タイプには補助画像はありません。</p>
+              {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="section">
+              <h2>前処理の実行ステップ</h2>
+              {% if result.executed_steps %}
+              <ol class="step-list">
+                {% for step in result.executed_steps %}
+                <li class="step-item">
+                  <strong>Stage {{ step.index }}: {{ step.label }}</strong>
+                  {% if step.info %}
+                  <div class="mini">{% for key, value in step.info.items() %}{{ key }}={{ value }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+                  {% else %}
+                  <div class="mini">追加パラメータなし</div>
+                  {% endif %}
+                </li>
+                {% endfor %}
+              </ol>
+              {% else %}
+              <p class="hint">
+                有効な前処理ステージがないため、原画像がそのまま{% if result.analysis %}本解析に入力{% else %}前処理結果{% endif %}として扱われています。
+              </p>
+              {% endif %}
+            </div>
+
+            <div class="section">
+              <h2>前処理の途中結果（各ステージ後）</h2>
+              {% if result.stage_previews %}
+              <div class="thumb-grid {{ result.stage_layout_class }}">
+                {% for step in result.stage_previews %}
+                <div class="thumb-card">
+                  <h4>Stage {{ step.index }}: {{ step.label }}</h4>
+                  <img src="{{ step.src }}" alt="Stage {{ step.index }} の処理結果" />
+                  <p>{{ step.image_info.size }} / ch={{ step.image_info.channels }} / {{ step.image_info.dtype }}</p>
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <p class="hint">ステージが実行されていないため途中結果はありません。</p>
+              {% endif %}
+            </div>
+
+            <div class="section">
+              <h2>画像メタ情報</h2>
+              <div class="meta-grid">
+                <div class="meta-card">
+                  <h3>原画像</h3>
+                  <dl>
+                    <dt>ファイル名</dt>
+                    <dd>{{ result.filename }}</dd>
+                    {% for key, value in result.original_info.items() %}
+                    <dt>{{ key }}</dt>
+                    <dd>{{ value }}</dd>
+                    {% endfor %}
+                  </dl>
+                </div>
+                <div class="meta-card">
+                  <h3>前処理結果（本解析入力）</h3>
+                  <dl>
+                    {% for key, value in result.final_info.items() %}
+                    <dt>{{ key }}</dt>
+                    <dd>{{ value }}</dd>
+                    {% endfor %}
+                    {% if result.analysis %}
+                    <dt>本解析主結果</dt>
+                    <dd>{{ result.analysis.main_output_info.size }} / ch={{ result.analysis.main_output_info.channels }} / {{ result.analysis.main_output_info.dtype }}</dd>
+                    {% endif %}
+                  </dl>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+          </section>
+        </div>
       </form>
-
-      {% if error %}
-      <div class="error">{{ error }}</div>
-      {% endif %}
-
-      {% if result %}
-      <section class="result" aria-live="polite">
-        <dl>
-          <dt>ファイル名</dt>
-          <dd>{{ result.filename }}</dd>
-          <dt>サイズ</dt>
-          <dd>{{ result.width }} x {{ result.height }}</dd>
-          <dt>モード</dt>
-          <dd>{{ result.mode }}</dd>
-          <dt>形式</dt>
-          <dd>{{ result.format }}</dd>
-        </dl>
-      </section>
-      {% endif %}
     </main>
+
+    <script>
+      (() => {
+        const pipelineUsage = {{ pipeline_param_usage | tojson }};
+        const analysisUsage = {{ analysis_param_usage | tojson }};
+        const thresholdModeUsage = {{ threshold_mode_param_usage | tojson }};
+
+        const pipelineStageCards = document.querySelectorAll('[data-stage-card]');
+
+        const updatePipelineStageCard = (card) => {
+          const enabled = card.querySelector('[data-stage-enabled]')?.checked ?? false;
+          const operation = card.querySelector('[data-stage-operation]')?.value;
+          const activeParams = new Set(pipelineUsage[operation] || []);
+
+          card.querySelectorAll('[data-param-field]').forEach((field) => {
+            const param = field.getAttribute('data-param-field');
+            const input = field.querySelector('input, select, textarea');
+            const editable = enabled && activeParams.has(param);
+            field.classList.toggle('is-disabled', !editable);
+            if (input) input.disabled = !editable;
+          });
+        };
+
+        pipelineStageCards.forEach((card) => {
+          const enabled = card.querySelector('[data-stage-enabled]');
+          const operation = card.querySelector('[data-stage-operation]');
+          enabled?.addEventListener('change', () => updatePipelineStageCard(card));
+          operation?.addEventListener('change', () => updatePipelineStageCard(card));
+          updatePipelineStageCard(card);
+        });
+
+        const analysisRoot = document.querySelector('[data-analysis-settings]');
+        const analysisTypeSelect = analysisRoot?.querySelector('[data-analysis-type]');
+        const thresholdModeSelect = analysisRoot?.querySelector('[data-threshold-mode]');
+        const thresholdSpecificParams = new Set(['threshold_value', 'adaptive_block_size', 'adaptive_c']);
+
+        const setAnalysisFieldEditable = (field, editable) => {
+          const input = field.querySelector('input, select, textarea');
+          field.classList.toggle('is-disabled', !editable);
+          if (input) input.disabled = !editable;
+        };
+
+        const updateAnalysisFields = () => {
+          if (!analysisRoot || !analysisTypeSelect) return;
+
+          const analysisType = analysisTypeSelect.value;
+          const thresholdMode = thresholdModeSelect ? thresholdModeSelect.value : 'fixed';
+          const activeByType = new Set(analysisUsage[analysisType] || []);
+          const activeByThresholdMode = new Set(thresholdModeUsage[thresholdMode] || []);
+
+          analysisRoot.querySelectorAll('[data-analysis-param-field]').forEach((field) => {
+            const param = field.getAttribute('data-analysis-param-field');
+            let editable = activeByType.has(param);
+
+            // For threshold analysis, enable only the parameter subset needed by the chosen threshold mode.
+            if (analysisType === 'threshold' && thresholdSpecificParams.has(param)) {
+              editable = activeByThresholdMode.has(param);
+            }
+
+            // For non-threshold analyses, all threshold-specific params must stay disabled.
+            if (analysisType !== 'threshold' && thresholdSpecificParams.has(param)) {
+              editable = false;
+            }
+
+            setAnalysisFieldEditable(field, editable);
+          });
+        };
+
+        analysisTypeSelect?.addEventListener('change', updateAnalysisFields);
+        thresholdModeSelect?.addEventListener('change', updateAnalysisFields);
+        updateAnalysisFields();
+      })();
+    </script>
   </body>
-  </html>
+</html>
