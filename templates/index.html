@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>OpenCV 前処理検証 GUI</title>
+    <title>OpenCV 前処理パイプライン GUI</title>
     <style>
       :root {
         --bg: #f3f1ea;
@@ -13,6 +13,7 @@
         --line: #d8d0c4;
         --accent: #d56b2d;
         --accent-ink: #ffffff;
+        --soft: #f7f3eb;
       }
 
       * {
@@ -34,7 +35,7 @@
       }
 
       .panel {
-        width: min(1100px, 100%);
+        width: min(1200px, 100%);
         background: color-mix(in srgb, var(--panel) 92%, white);
         border: 1px solid var(--line);
         border-radius: 16px;
@@ -48,24 +49,24 @@
       }
 
       p {
-        margin: 0 0 16px;
+        margin: 0;
         color: var(--muted);
       }
 
       form {
+        margin-top: 18px;
         display: grid;
         gap: 16px;
       }
 
-      .grid {
+      .layout {
         display: grid;
-        grid-template-columns: 360px minmax(0, 1fr);
+        grid-template-columns: 430px minmax(0, 1fr);
         gap: 20px;
         align-items: start;
       }
 
-      .controls,
-      .preview {
+      .column {
         display: grid;
         gap: 16px;
       }
@@ -85,17 +86,15 @@
       .hint {
         font-size: 0.85rem;
         color: var(--muted);
-        margin: 0;
-      }
-
-      .field-grid {
-        display: grid;
-        gap: 10px;
       }
 
       .field {
         display: grid;
         gap: 6px;
+      }
+
+      .field + .field {
+        margin-top: 10px;
       }
 
       .field label {
@@ -120,10 +119,62 @@
         background: #fff;
       }
 
+      .pipeline-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .stage-card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--soft);
+        padding: 12px;
+      }
+
+      .stage-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .stage-title {
+        font-weight: 700;
+        font-size: 0.95rem;
+      }
+
+      .toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85rem;
+      }
+
+      .toggle input {
+        width: auto;
+        margin: 0;
+      }
+
+      .params-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .params-grid .field {
+        margin: 0;
+      }
+
+      .field small {
+        color: var(--muted);
+        font-size: 0.75rem;
+      }
+
       button {
         border: 0;
         border-radius: 999px;
-        padding: 10px 16px;
+        padding: 12px 16px;
         font-weight: 700;
         cursor: pointer;
         background: var(--accent);
@@ -131,22 +182,21 @@
         width: 100%;
       }
 
-      .error,
-      .result-panel {
-        margin-top: 16px;
+      .error {
         border-radius: 12px;
         padding: 12px 14px;
-      }
-
-      .error {
         background: #fff1ec;
         border: 1px solid #efc5b6;
         color: #822e10;
       }
 
-      .result-panel {
-        background: #f5f9ef;
-        border: 1px solid #cadbb3;
+      .pill {
+        display: inline-block;
+        border-radius: 999px;
+        border: 1px solid #dfd4c3;
+        background: #fbf8f2;
+        padding: 4px 10px;
+        font-size: 0.85rem;
       }
 
       .image-grid {
@@ -163,7 +213,7 @@
       }
 
       .image-card h3 {
-        margin: 0 0 10px;
+        margin: 0 0 8px;
         font-size: 0.95rem;
       }
 
@@ -174,6 +224,24 @@
         border-radius: 8px;
         border: 1px solid #eee6da;
         background: linear-gradient(45deg, #f6f0e6, #fff);
+      }
+
+      .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .meta-card {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+      }
+
+      .meta-card h3 {
+        margin: 0 0 8px;
+        font-size: 0.95rem;
       }
 
       dl {
@@ -191,41 +259,70 @@
         margin: 0;
       }
 
-      .meta-grid {
+      .step-list {
+        margin: 0;
+        padding-left: 1.2rem;
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
+        gap: 8px;
       }
 
-      .meta-card {
+      .step-item {
         background: #fff;
         border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 12px;
+        border-radius: 10px;
+        padding: 10px;
       }
 
-      .meta-card h3 {
-        margin: 0 0 10px;
-        font-size: 0.95rem;
+      .step-item strong {
+        display: block;
+        margin-bottom: 4px;
       }
 
-      .pill {
-        display: inline-block;
-        border-radius: 999px;
-        border: 1px solid #dfd4c3;
-        background: #fbf8f2;
-        padding: 4px 10px;
+      .step-item .mini {
+        color: var(--muted);
         font-size: 0.85rem;
-        margin-bottom: 10px;
       }
 
-      @media (max-width: 900px) {
-        .grid {
+      .thumb-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .thumb-card {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px;
+      }
+
+      .thumb-card h4 {
+        margin: 0 0 8px;
+        font-size: 0.9rem;
+      }
+
+      .thumb-card img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 8px;
+        border: 1px solid #eee6da;
+      }
+
+      .thumb-card p {
+        margin-top: 8px;
+        font-size: 0.8rem;
+      }
+
+      @media (max-width: 980px) {
+        .layout {
           grid-template-columns: 1fr;
         }
 
         .image-grid,
-        .meta-grid {
+        .meta-grid,
+        .thumb-grid,
+        .params-grid {
           grid-template-columns: 1fr;
         }
       }
@@ -233,139 +330,183 @@
   </head>
   <body>
     <main class="panel">
-      <h1>OpenCV 前処理検証 GUI（たたき台）</h1>
+      <h1>OpenCV 基本処理パイプライン検証 GUI</h1>
       <p>
-        画像をアップロードして、前処理の種類とパラメータを変更しながら見え方を確認できます。
-        現時点では基礎的な処理（ぼかし・二値化・エッジ・Hough線検出）を試せます。
+        色相・コントラスト・ガンマ変換などの基本処理を、複数段のパイプラインとして順番に適用して見え方を確認できます。
+        既存のエッジ検出系の処理は、コード内には残したまま現在の画面からは外しています。
       </p>
 
       <form action="/process" method="post" enctype="multipart/form-data">
-        <div class="grid">
-          <section class="controls">
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <div class="layout">
+          <section class="column">
             <div class="section">
               <h2>入力画像</h2>
-              <div class="field-grid">
-                <div class="field">
-                  <label for="image">画像ファイル</label>
-                  <input id="image" type="file" name="image" accept="image/*" />
-                </div>
+              <div class="field">
+                <label for="image">画像ファイル</label>
+                <input id="image" type="file" name="image" accept="image/*" />
               </div>
             </div>
 
             <div class="section">
-              <h2>処理設定</h2>
-              <p class="hint">使わないパラメータは選択中の処理では無視されます。</p>
-              <div class="field-grid">
-                <div class="field">
-                  <label for="process_type">処理タイプ</label>
-                  <select id="process_type" name="process_type">
-                    {% for value, label in process_options %}
-                    <option value="{{ value }}" {% if form_values.process_type == value %}selected{% endif %}>
-                      {{ label }}
-                    </option>
-                    {% endfor %}
-                  </select>
-                </div>
+              <h2>パイプライン（最大 {{ pipeline_stages|length }} 段）</h2>
+              <p class="hint">
+                各ステージは有効/無効を切り替えできます。選択中の処理に関係ないパラメータは無視されます。
+              </p>
 
-                <div class="field">
-                  <label for="blur_kernel">ぼかしカーネル（奇数）</label>
-                  <input id="blur_kernel" type="number" name="blur_kernel" min="1" max="99" value="{{ form_values.blur_kernel }}" />
-                </div>
+              <div class="pipeline-list">
+                {% for stage in pipeline_stages %}
+                <div class="stage-card">
+                  <div class="stage-header">
+                    <div class="stage-title">Stage {{ stage.index }}</div>
+                    <label class="toggle">
+                      <input type="checkbox" name="{{ stage.prefix }}_enabled" {% if stage.enabled %}checked{% endif %} />
+                      有効
+                    </label>
+                  </div>
 
-                <div class="field">
-                  <label for="threshold_value">二値化閾値（0-255）</label>
-                  <input id="threshold_value" type="number" name="threshold_value" min="0" max="255" value="{{ form_values.threshold_value }}" />
-                </div>
+                  <div class="field">
+                    <label for="{{ stage.prefix }}_operation">処理</label>
+                    <select id="{{ stage.prefix }}_operation" name="{{ stage.prefix }}_operation">
+                      {% for value, label in pipeline_operation_options %}
+                      <option value="{{ value }}" {% if stage.operation == value %}selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
 
-                <div class="field">
-                  <label for="adaptive_block_size">適応的二値化 block size（奇数）</label>
-                  <input id="adaptive_block_size" type="number" name="adaptive_block_size" min="3" max="99" value="{{ form_values.adaptive_block_size }}" />
-                </div>
+                  <div class="params-grid">
+                    <div class="field">
+                      <label for="{{ stage.prefix }}_brightness">明るさ</label>
+                      <input id="{{ stage.prefix }}_brightness" type="number" name="{{ stage.prefix }}_brightness" min="-255" max="255" value="{{ stage.brightness }}" />
+                      <small>`brightness` 用</small>
+                    </div>
 
-                <div class="field">
-                  <label for="adaptive_c">適応的二値化 C 値</label>
-                  <input id="adaptive_c" type="number" name="adaptive_c" min="-50" max="50" value="{{ form_values.adaptive_c }}" />
-                </div>
+                    <div class="field">
+                      <label for="{{ stage.prefix }}_contrast">コントラスト倍率</label>
+                      <input id="{{ stage.prefix }}_contrast" type="number" step="0.1" min="0.1" max="4.0" name="{{ stage.prefix }}_contrast" value="{{ stage.contrast }}" />
+                      <small>`contrast` 用</small>
+                    </div>
 
-                <div class="field">
-                  <label for="canny_low">Canny low threshold</label>
-                  <input id="canny_low" type="number" name="canny_low" min="0" max="500" value="{{ form_values.canny_low }}" />
-                </div>
+                    <div class="field">
+                      <label for="{{ stage.prefix }}_gamma">ガンマ値</label>
+                      <input id="{{ stage.prefix }}_gamma" type="number" step="0.1" min="0.1" max="5.0" name="{{ stage.prefix }}_gamma" value="{{ stage.gamma }}" />
+                      <small>`gamma` 用</small>
+                    </div>
 
-                <div class="field">
-                  <label for="canny_high">Canny high threshold</label>
-                  <input id="canny_high" type="number" name="canny_high" min="1" max="500" value="{{ form_values.canny_high }}" />
-                </div>
+                    <div class="field">
+                      <label for="{{ stage.prefix }}_hue_deg">色相シフト（度）</label>
+                      <input id="{{ stage.prefix }}_hue_deg" type="number" min="-180" max="180" name="{{ stage.prefix }}_hue_deg" value="{{ stage.hue_deg }}" />
+                      <small>`hue_shift` 用</small>
+                    </div>
 
-                <div class="field">
-                  <label for="hough_threshold">Hough threshold</label>
-                  <input id="hough_threshold" type="number" name="hough_threshold" min="1" max="500" value="{{ form_values.hough_threshold }}" />
-                </div>
+                    <div class="field">
+                      <label for="{{ stage.prefix }}_saturation_percent">彩度（%）</label>
+                      <input id="{{ stage.prefix }}_saturation_percent" type="number" min="0" max="300" name="{{ stage.prefix }}_saturation_percent" value="{{ stage.saturation_percent }}" />
+                      <small>`saturation` 用</small>
+                    </div>
 
-                <div class="field">
-                  <label for="hough_min_line_length">Hough min line length</label>
-                  <input id="hough_min_line_length" type="number" name="hough_min_line_length" min="1" max="2000" value="{{ form_values.hough_min_line_length }}" />
+                    <div class="field">
+                      <label for="{{ stage.prefix }}_blur_kernel">ぼかしカーネル（奇数）</label>
+                      <input id="{{ stage.prefix }}_blur_kernel" type="number" min="1" max="99" name="{{ stage.prefix }}_blur_kernel" value="{{ stage.blur_kernel }}" />
+                      <small>`gaussian_blur` 用</small>
+                    </div>
+                  </div>
                 </div>
-
-                <div class="field">
-                  <label for="hough_max_line_gap">Hough max line gap</label>
-                  <input id="hough_max_line_gap" type="number" name="hough_max_line_gap" min="0" max="500" value="{{ form_values.hough_max_line_gap }}" />
-                </div>
+                {% endfor %}
               </div>
             </div>
 
-            <button type="submit">処理を実行して比較</button>
+            <button type="submit">パイプラインを実行</button>
           </section>
 
-          <section class="preview">
+          <section class="column">
             <div class="section">
               <h2>結果プレビュー</h2>
               {% if result %}
-              <div class="pill">適用処理: {{ result.process_label }}</div>
               <div class="image-grid">
                 <div class="image-card">
                   <h3>原画像</h3>
                   <img src="{{ result.original_src }}" alt="原画像プレビュー" />
                 </div>
                 <div class="image-card">
-                  <h3>処理後画像</h3>
-                  <img src="{{ result.processed_src }}" alt="処理後画像プレビュー" />
+                  <h3>最終結果</h3>
+                  <img src="{{ result.final_src }}" alt="パイプライン処理後画像プレビュー" />
                 </div>
               </div>
               {% else %}
-              <p class="hint">
-                画像と処理タイプを指定して「処理を実行して比較」を押すと、ここに原画像と処理結果が表示されます。
-              </p>
+              <p class="hint">画像をアップロードしてパイプラインを実行すると、ここに結果が表示されます。</p>
               {% endif %}
             </div>
 
             {% if result %}
             <div class="section">
-              <h2>メタ情報</h2>
+              <h2>実行されたステップ</h2>
+              {% if result.executed_steps %}
+              <ol class="step-list">
+                {% for step in result.executed_steps %}
+                <li class="step-item">
+                  <strong>Stage {{ step.index }}: {{ step.label }}</strong>
+                  {% if step.info %}
+                  <div class="mini">
+                    {% for key, value in step.info.items() %}
+                    {{ key }}={{ value }}{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                  </div>
+                  {% else %}
+                  <div class="mini">追加パラメータなし</div>
+                  {% endif %}
+                </li>
+                {% endfor %}
+              </ol>
+              {% else %}
+              <p class="hint">有効なステージがないため、原画像がそのまま結果として表示されています。</p>
+              {% endif %}
+            </div>
+
+            <div class="section">
+              <h2>途中結果（各ステージ後）</h2>
+              {% if result.stage_previews %}
+              <div class="thumb-grid">
+                {% for step in result.stage_previews %}
+                <div class="thumb-card">
+                  <h4>Stage {{ step.index }}: {{ step.label }}</h4>
+                  <img src="{{ step.src }}" alt="Stage {{ step.index }} の処理結果" />
+                  <p>
+                    {{ step.image_info.size }} / ch={{ step.image_info.channels }} / {{ step.image_info.dtype }}
+                  </p>
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <p class="hint">ステージが実行されていないため途中結果はありません。</p>
+              {% endif %}
+            </div>
+
+            <div class="section">
+              <h2>画像メタ情報</h2>
               <div class="meta-grid">
                 <div class="meta-card">
-                  <h3>画像情報</h3>
+                  <h3>原画像</h3>
                   <dl>
                     <dt>ファイル名</dt>
                     <dd>{{ result.filename }}</dd>
-                    {% for key, value in result.image_info.items() %}
+                    {% for key, value in result.original_info.items() %}
                     <dt>{{ key }}</dt>
                     <dd>{{ value }}</dd>
                     {% endfor %}
                   </dl>
                 </div>
                 <div class="meta-card">
-                  <h3>処理パラメータ（実適用）</h3>
-                  {% if result.process_info %}
+                  <h3>最終結果</h3>
                   <dl>
-                    {% for key, value in result.process_info.items() %}
+                    {% for key, value in result.final_info.items() %}
                     <dt>{{ key }}</dt>
                     <dd>{{ value }}</dd>
                     {% endfor %}
                   </dl>
-                  {% else %}
-                  <p class="hint">この処理タイプでは追加パラメータはありません。</p>
-                  {% endif %}
                 </div>
               </div>
             </div>
@@ -373,10 +514,6 @@
           </section>
         </div>
       </form>
-
-      {% if error %}
-      <div class="error">{{ error }}</div>
-      {% endif %}
     </main>
   </body>
 </html>

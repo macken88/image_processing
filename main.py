@@ -9,6 +9,8 @@ BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
+# Legacy single-process options/functions are intentionally kept for future reuse,
+# but are no longer exposed from the current app UI.
 PROCESS_OPTIONS = [
     ("original", "原画像"),
     ("grayscale", "グレースケール"),
@@ -19,6 +21,20 @@ PROCESS_OPTIONS = [
     ("hough_lines", "Hough 線検出（確率的）"),
 ]
 PROCESS_LABELS = dict(PROCESS_OPTIONS)
+
+PIPELINE_STAGE_COUNT = 4
+PIPELINE_OPERATION_OPTIONS = [
+    ("noop", "なし（スキップ）"),
+    ("brightness", "明るさ調整"),
+    ("contrast", "コントラスト調整"),
+    ("gamma", "ガンマ変換"),
+    ("hue_shift", "色相シフト"),
+    ("saturation", "彩度調整"),
+    ("gaussian_blur", "ガウシアンぼかし"),
+    ("grayscale", "グレースケール"),
+    ("invert", "反転"),
+]
+PIPELINE_OPERATION_LABELS = dict(PIPELINE_OPERATION_OPTIONS)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB
@@ -39,10 +55,47 @@ def default_form_values() -> dict[str, int | str]:
     }
 
 
+def default_pipeline_stage_values(stage_index: int) -> dict[str, int | float | str | bool]:
+    default_operation = "noop"
+    default_enabled = False
+    if stage_index == 1:
+        default_operation = "contrast"
+        default_enabled = True
+    elif stage_index == 2:
+        default_operation = "gamma"
+        default_enabled = True
+
+    return {
+        "index": stage_index,
+        "prefix": f"stage{stage_index}",
+        "enabled": default_enabled,
+        "operation": default_operation,
+        "brightness": 0,
+        "contrast": 1.2 if stage_index == 1 else 1.0,
+        "gamma": 1.0,
+        "hue_deg": 0,
+        "saturation_percent": 100,
+        "blur_kernel": 5,
+    }
+
+
+def default_pipeline_stages() -> list[dict[str, int | float | str | bool]]:
+    return [default_pipeline_stage_values(i) for i in range(1, PIPELINE_STAGE_COUNT + 1)]
+
+
 def parse_int(form, key: str, default: int, *, min_value: int, max_value: int) -> int:
     raw = form.get(key, "")
     try:
         value = int(raw)
+    except (TypeError, ValueError):
+        value = default
+    return max(min_value, min(max_value, value))
+
+
+def parse_float(form, key: str, default: float, *, min_value: float, max_value: float) -> float:
+    raw = form.get(key, "")
+    try:
+        value = float(raw)
     except (TypeError, ValueError):
         value = default
     return max(min_value, min(max_value, value))
@@ -77,9 +130,18 @@ def encode_image_data_url(image: np.ndarray) -> str:
 
 
 def to_gray(image: np.ndarray) -> np.ndarray:
+    if image.ndim == 2:
+        return image.copy()
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
 
+def to_bgr(image: np.ndarray) -> np.ndarray:
+    if image.ndim == 2:
+        return cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    return image.copy()
+
+
+# Legacy single-process executor (kept for later reintroduction)
 def apply_process(image: np.ndarray, params: dict[str, int | str]) -> tuple[np.ndarray, dict[str, str]]:
     process_type = str(params["process_type"])
     info: dict[str, str] = {}
@@ -162,10 +224,151 @@ def apply_process(image: np.ndarray, params: dict[str, int | str]) -> tuple[np.n
     raise ValueError("未対応の処理タイプです。")
 
 
+def parse_pipeline_stages(form) -> list[dict[str, int | float | str | bool]]:
+    stages = default_pipeline_stages()
+    valid_ops = set(PIPELINE_OPERATION_LABELS)
+
+    for stage in stages:
+        prefix = str(stage["prefix"])
+        stage["enabled"] = f"{prefix}_enabled" in form
+
+        operation = form.get(f"{prefix}_operation", str(stage["operation"]))
+        if operation not in valid_ops:
+            operation = "noop"
+        stage["operation"] = operation
+
+        stage["brightness"] = parse_int(form, f"{prefix}_brightness", int(stage["brightness"]), min_value=-255, max_value=255)
+        stage["contrast"] = parse_float(form, f"{prefix}_contrast", float(stage["contrast"]), min_value=0.1, max_value=4.0)
+        stage["gamma"] = parse_float(form, f"{prefix}_gamma", float(stage["gamma"]), min_value=0.1, max_value=5.0)
+        stage["hue_deg"] = parse_int(form, f"{prefix}_hue_deg", int(stage["hue_deg"]), min_value=-180, max_value=180)
+        stage["saturation_percent"] = parse_int(
+            form,
+            f"{prefix}_saturation_percent",
+            int(stage["saturation_percent"]),
+            min_value=0,
+            max_value=300,
+        )
+        stage["blur_kernel"] = make_odd(
+            parse_int(form, f"{prefix}_blur_kernel", int(stage["blur_kernel"]), min_value=1, max_value=99),
+            minimum=1,
+        )
+
+    return stages
+
+
+def gamma_correct(image: np.ndarray, gamma_value: float) -> np.ndarray:
+    table = np.array(
+        [np.clip(((i / 255.0) ** gamma_value) * 255.0, 0, 255) for i in range(256)],
+        dtype=np.uint8,
+    )
+    return cv2.LUT(image, table)
+
+
+def apply_pipeline_stage(
+    image: np.ndarray, stage: dict[str, int | float | str | bool]
+) -> tuple[np.ndarray, dict[str, str]]:
+    operation = str(stage["operation"])
+    info: dict[str, str] = {}
+
+    if operation == "noop":
+        return image.copy(), info
+
+    if operation == "brightness":
+        delta = int(stage["brightness"])
+        result = np.clip(image.astype(np.int16) + delta, 0, 255).astype(np.uint8)
+        info["brightness"] = str(delta)
+        return result, info
+
+    if operation == "contrast":
+        alpha = float(stage["contrast"])
+        base = image.astype(np.float32)
+        result = np.clip((base - 127.5) * alpha + 127.5, 0, 255).astype(np.uint8)
+        info["contrast"] = f"{alpha:.2f}"
+        return result, info
+
+    if operation == "gamma":
+        gamma_value = float(stage["gamma"])
+        info["gamma"] = f"{gamma_value:.2f}"
+        return gamma_correct(image, gamma_value), info
+
+    if operation == "hue_shift":
+        hue_deg = int(stage["hue_deg"])
+        hsv = cv2.cvtColor(to_bgr(image), cv2.COLOR_BGR2HSV)
+        hue_shift_cv = int(round(hue_deg / 2))
+        hsv[..., 0] = (hsv[..., 0].astype(np.int16) + hue_shift_cv) % 180
+        result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        info["hue_deg"] = str(hue_deg)
+        return result, info
+
+    if operation == "saturation":
+        saturation_percent = int(stage["saturation_percent"])
+        hsv = cv2.cvtColor(to_bgr(image), cv2.COLOR_BGR2HSV).astype(np.float32)
+        hsv[..., 1] = np.clip(hsv[..., 1] * (saturation_percent / 100.0), 0, 255)
+        result = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+        info["saturation_percent"] = str(saturation_percent)
+        return result, info
+
+    if operation == "gaussian_blur":
+        kernel = make_odd(int(stage["blur_kernel"]), minimum=1)
+        result = cv2.GaussianBlur(image, (kernel, kernel), 0)
+        info["blur_kernel"] = str(kernel)
+        return result, info
+
+    if operation == "grayscale":
+        return to_gray(image), info
+
+    if operation == "invert":
+        return 255 - image, info
+
+    raise ValueError("未対応のパイプライン処理です。")
+
+
+def summarize_image(image: np.ndarray) -> dict[str, str]:
+    return {
+        "size": f"{image.shape[1]} x {image.shape[0]}",
+        "channels": str(image.shape[2]) if image.ndim == 3 else "1",
+        "dtype": str(image.dtype),
+    }
+
+
+def run_pipeline(
+    original: np.ndarray, stages: list[dict[str, int | float | str | bool]]
+) -> tuple[np.ndarray, list[dict[str, object]], list[dict[str, object]]]:
+    current = original.copy()
+    executed_steps: list[dict[str, object]] = []
+    stage_previews: list[dict[str, object]] = []
+
+    for stage in stages:
+        if not bool(stage["enabled"]):
+            continue
+        operation = str(stage["operation"])
+        if operation == "noop":
+            continue
+
+        current, info = apply_pipeline_stage(current, stage)
+        step_summary = {
+            "index": int(stage["index"]),
+            "label": PIPELINE_OPERATION_LABELS[operation],
+            "operation": operation,
+            "info": info,
+        }
+        executed_steps.append(step_summary)
+        stage_previews.append(
+            {
+                "index": int(stage["index"]),
+                "label": PIPELINE_OPERATION_LABELS[operation],
+                "src": encode_image_data_url(current),
+                "image_info": summarize_image(current),
+            }
+        )
+
+    return current, executed_steps, stage_previews
+
+
 def build_template_context(**kwargs):
     context = {
-        "process_options": PROCESS_OPTIONS,
-        "form_values": default_form_values(),
+        "pipeline_operation_options": PIPELINE_OPERATION_OPTIONS,
+        "pipeline_stages": default_pipeline_stages(),
         "error": None,
         "result": None,
     }
@@ -180,34 +383,7 @@ def index():
 
 @app.post("/process")
 def process_image():
-    form_values = default_form_values()
-    form_values["process_type"] = request.form.get("process_type", "grayscale")
-    if form_values["process_type"] not in PROCESS_LABELS:
-        form_values["process_type"] = "grayscale"
-
-    form_values["blur_kernel"] = make_odd(
-        parse_int(request.form, "blur_kernel", 5, min_value=1, max_value=99),
-        minimum=1,
-    )
-    form_values["threshold_value"] = parse_int(
-        request.form, "threshold_value", 128, min_value=0, max_value=255
-    )
-    form_values["adaptive_block_size"] = make_odd(
-        parse_int(request.form, "adaptive_block_size", 11, min_value=3, max_value=99),
-        minimum=3,
-    )
-    form_values["adaptive_c"] = parse_int(request.form, "adaptive_c", 2, min_value=-50, max_value=50)
-    form_values["canny_low"] = parse_int(request.form, "canny_low", 80, min_value=0, max_value=500)
-    form_values["canny_high"] = parse_int(request.form, "canny_high", 160, min_value=1, max_value=500)
-    form_values["hough_threshold"] = parse_int(
-        request.form, "hough_threshold", 50, min_value=1, max_value=500
-    )
-    form_values["hough_min_line_length"] = parse_int(
-        request.form, "hough_min_line_length", 40, min_value=1, max_value=2000
-    )
-    form_values["hough_max_line_gap"] = parse_int(
-        request.form, "hough_max_line_gap", 10, min_value=0, max_value=500
-    )
+    pipeline_stages = parse_pipeline_stages(request.form)
 
     file = request.files.get("image")
     if file is None or file.filename == "":
@@ -215,7 +391,7 @@ def process_image():
             render_template(
                 "index.html",
                 **build_template_context(
-                    form_values=form_values,
+                    pipeline_stages=pipeline_stages,
                     error="画像ファイルを選択してください。",
                 ),
             ),
@@ -224,33 +400,28 @@ def process_image():
 
     try:
         original = decode_uploaded_image(file)
-        processed, process_info = apply_process(original, form_values)
+        final_image, executed_steps, stage_previews = run_pipeline(original, pipeline_stages)
         result = {
             "filename": file.filename,
             "original_src": encode_image_data_url(original),
-            "processed_src": encode_image_data_url(processed),
-            "process_label": PROCESS_LABELS[str(form_values["process_type"])],
-            "image_info": {
-                "original_size": f"{original.shape[1]} x {original.shape[0]}",
-                "original_channels": str(original.shape[2]) if original.ndim == 3 else "1",
-                "processed_size": f"{processed.shape[1]} x {processed.shape[0]}",
-                "processed_channels": str(processed.shape[2]) if processed.ndim == 3 else "1",
-                "dtype": str(processed.dtype),
-            },
-            "process_info": process_info,
+            "final_src": encode_image_data_url(final_image),
+            "executed_steps": executed_steps,
+            "stage_previews": stage_previews,
+            "original_info": summarize_image(original),
+            "final_info": summarize_image(final_image),
         }
     except ValueError as exc:
         return (
             render_template(
                 "index.html",
-                **build_template_context(form_values=form_values, error=str(exc)),
+                **build_template_context(pipeline_stages=pipeline_stages, error=str(exc)),
             ),
             400,
         )
 
     return render_template(
         "index.html",
-        **build_template_context(form_values=form_values, result=result),
+        **build_template_context(pipeline_stages=pipeline_stages, result=result),
     )
 
 
