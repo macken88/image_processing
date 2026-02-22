@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Image Processing GUI</title>
+    <title>OpenCV 前処理検証 GUI</title>
     <style>
       :root {
         --bg: #f3f1ea;
@@ -34,7 +34,7 @@
       }
 
       .panel {
-        width: min(680px, 100%);
+        width: min(1100px, 100%);
         background: color-mix(in srgb, var(--panel) 92%, white);
         border: 1px solid var(--line);
         border-radius: 16px;
@@ -54,7 +54,63 @@
 
       form {
         display: grid;
-        gap: 12px;
+        gap: 16px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 360px minmax(0, 1fr);
+        gap: 20px;
+        align-items: start;
+      }
+
+      .controls,
+      .preview {
+        display: grid;
+        gap: 16px;
+      }
+
+      .section {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px;
+      }
+
+      .section h2 {
+        margin: 0 0 10px;
+        font-size: 1rem;
+      }
+
+      .hint {
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin: 0;
+      }
+
+      .field-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .field label {
+        font-size: 0.9rem;
+        font-weight: 700;
+      }
+
+      .field input,
+      .field select {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: #fff;
+        font: inherit;
       }
 
       input[type="file"] {
@@ -72,11 +128,11 @@
         cursor: pointer;
         background: var(--accent);
         color: var(--accent-ink);
-        width: fit-content;
+        width: 100%;
       }
 
       .error,
-      .result {
+      .result-panel {
         margin-top: 16px;
         border-radius: 12px;
         padding: 12px 14px;
@@ -88,9 +144,36 @@
         color: #822e10;
       }
 
-      .result {
+      .result-panel {
         background: #f5f9ef;
         border: 1px solid #cadbb3;
+      }
+
+      .image-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .image-card {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+      }
+
+      .image-card h3 {
+        margin: 0 0 10px;
+        font-size: 0.95rem;
+      }
+
+      .image-card img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 8px;
+        border: 1px solid #eee6da;
+        background: linear-gradient(45deg, #f6f0e6, #fff);
       }
 
       dl {
@@ -107,36 +190,193 @@
       dd {
         margin: 0;
       }
+
+      .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .meta-card {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+      }
+
+      .meta-card h3 {
+        margin: 0 0 10px;
+        font-size: 0.95rem;
+      }
+
+      .pill {
+        display: inline-block;
+        border-radius: 999px;
+        border: 1px solid #dfd4c3;
+        background: #fbf8f2;
+        padding: 4px 10px;
+        font-size: 0.85rem;
+        margin-bottom: 10px;
+      }
+
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .image-grid,
+        .meta-grid {
+          grid-template-columns: 1fr;
+        }
+      }
     </style>
   </head>
   <body>
     <main class="panel">
-      <h1>画像処理GUIアプリ（開発用）</h1>
-      <p>まずは画像アップロードと基本情報の確認ができる雛形です。</p>
+      <h1>OpenCV 前処理検証 GUI（たたき台）</h1>
+      <p>
+        画像をアップロードして、前処理の種類とパラメータを変更しながら見え方を確認できます。
+        現時点では基礎的な処理（ぼかし・二値化・エッジ・Hough線検出）を試せます。
+      </p>
 
-      <form action="/inspect" method="post" enctype="multipart/form-data">
-        <input type="file" name="image" accept="image/*" />
-        <button type="submit">画像を確認</button>
+      <form action="/process" method="post" enctype="multipart/form-data">
+        <div class="grid">
+          <section class="controls">
+            <div class="section">
+              <h2>入力画像</h2>
+              <div class="field-grid">
+                <div class="field">
+                  <label for="image">画像ファイル</label>
+                  <input id="image" type="file" name="image" accept="image/*" />
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <h2>処理設定</h2>
+              <p class="hint">使わないパラメータは選択中の処理では無視されます。</p>
+              <div class="field-grid">
+                <div class="field">
+                  <label for="process_type">処理タイプ</label>
+                  <select id="process_type" name="process_type">
+                    {% for value, label in process_options %}
+                    <option value="{{ value }}" {% if form_values.process_type == value %}selected{% endif %}>
+                      {{ label }}
+                    </option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="blur_kernel">ぼかしカーネル（奇数）</label>
+                  <input id="blur_kernel" type="number" name="blur_kernel" min="1" max="99" value="{{ form_values.blur_kernel }}" />
+                </div>
+
+                <div class="field">
+                  <label for="threshold_value">二値化閾値（0-255）</label>
+                  <input id="threshold_value" type="number" name="threshold_value" min="0" max="255" value="{{ form_values.threshold_value }}" />
+                </div>
+
+                <div class="field">
+                  <label for="adaptive_block_size">適応的二値化 block size（奇数）</label>
+                  <input id="adaptive_block_size" type="number" name="adaptive_block_size" min="3" max="99" value="{{ form_values.adaptive_block_size }}" />
+                </div>
+
+                <div class="field">
+                  <label for="adaptive_c">適応的二値化 C 値</label>
+                  <input id="adaptive_c" type="number" name="adaptive_c" min="-50" max="50" value="{{ form_values.adaptive_c }}" />
+                </div>
+
+                <div class="field">
+                  <label for="canny_low">Canny low threshold</label>
+                  <input id="canny_low" type="number" name="canny_low" min="0" max="500" value="{{ form_values.canny_low }}" />
+                </div>
+
+                <div class="field">
+                  <label for="canny_high">Canny high threshold</label>
+                  <input id="canny_high" type="number" name="canny_high" min="1" max="500" value="{{ form_values.canny_high }}" />
+                </div>
+
+                <div class="field">
+                  <label for="hough_threshold">Hough threshold</label>
+                  <input id="hough_threshold" type="number" name="hough_threshold" min="1" max="500" value="{{ form_values.hough_threshold }}" />
+                </div>
+
+                <div class="field">
+                  <label for="hough_min_line_length">Hough min line length</label>
+                  <input id="hough_min_line_length" type="number" name="hough_min_line_length" min="1" max="2000" value="{{ form_values.hough_min_line_length }}" />
+                </div>
+
+                <div class="field">
+                  <label for="hough_max_line_gap">Hough max line gap</label>
+                  <input id="hough_max_line_gap" type="number" name="hough_max_line_gap" min="0" max="500" value="{{ form_values.hough_max_line_gap }}" />
+                </div>
+              </div>
+            </div>
+
+            <button type="submit">処理を実行して比較</button>
+          </section>
+
+          <section class="preview">
+            <div class="section">
+              <h2>結果プレビュー</h2>
+              {% if result %}
+              <div class="pill">適用処理: {{ result.process_label }}</div>
+              <div class="image-grid">
+                <div class="image-card">
+                  <h3>原画像</h3>
+                  <img src="{{ result.original_src }}" alt="原画像プレビュー" />
+                </div>
+                <div class="image-card">
+                  <h3>処理後画像</h3>
+                  <img src="{{ result.processed_src }}" alt="処理後画像プレビュー" />
+                </div>
+              </div>
+              {% else %}
+              <p class="hint">
+                画像と処理タイプを指定して「処理を実行して比較」を押すと、ここに原画像と処理結果が表示されます。
+              </p>
+              {% endif %}
+            </div>
+
+            {% if result %}
+            <div class="section">
+              <h2>メタ情報</h2>
+              <div class="meta-grid">
+                <div class="meta-card">
+                  <h3>画像情報</h3>
+                  <dl>
+                    <dt>ファイル名</dt>
+                    <dd>{{ result.filename }}</dd>
+                    {% for key, value in result.image_info.items() %}
+                    <dt>{{ key }}</dt>
+                    <dd>{{ value }}</dd>
+                    {% endfor %}
+                  </dl>
+                </div>
+                <div class="meta-card">
+                  <h3>処理パラメータ（実適用）</h3>
+                  {% if result.process_info %}
+                  <dl>
+                    {% for key, value in result.process_info.items() %}
+                    <dt>{{ key }}</dt>
+                    <dd>{{ value }}</dd>
+                    {% endfor %}
+                  </dl>
+                  {% else %}
+                  <p class="hint">この処理タイプでは追加パラメータはありません。</p>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% endif %}
+          </section>
+        </div>
       </form>
 
       {% if error %}
       <div class="error">{{ error }}</div>
       {% endif %}
-
-      {% if result %}
-      <section class="result" aria-live="polite">
-        <dl>
-          <dt>ファイル名</dt>
-          <dd>{{ result.filename }}</dd>
-          <dt>サイズ</dt>
-          <dd>{{ result.width }} x {{ result.height }}</dd>
-          <dt>モード</dt>
-          <dd>{{ result.mode }}</dd>
-          <dt>形式</dt>
-          <dd>{{ result.format }}</dd>
-        </dl>
-      </section>
-      {% endif %}
     </main>
   </body>
-  </html>
+</html>
