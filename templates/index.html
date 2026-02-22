@@ -15,11 +15,7 @@
         --accent-ink: #ffffff;
         --soft: #f7f3eb;
       }
-
-      * {
-        box-sizing: border-box;
-      }
-
+      * { box-sizing: border-box; }
       body {
         margin: 0;
         min-height: 100vh;
@@ -33,409 +29,139 @@
         place-items: center;
         padding: 24px;
       }
-
       .panel {
-        width: min(1200px, 100%);
+        width: min(1800px, 100%);
         background: color-mix(in srgb, var(--panel) 92%, white);
         border: 1px solid var(--line);
         border-radius: 16px;
         box-shadow: 0 14px 40px rgba(31, 26, 20, 0.08);
         padding: 24px;
       }
-
-      h1 {
-        margin: 0 0 8px;
-        font-size: clamp(1.4rem, 3vw, 2rem);
+      h1 { margin: 0 0 8px; font-size: clamp(1.4rem, 3vw, 2rem); }
+      p { margin: 0; color: var(--muted); }
+      form { margin-top: 18px; display: grid; gap: 16px; }
+      .layout { display: grid; grid-template-columns: 480px minmax(0, 1fr); gap: 20px; align-items: start; }
+      .column { display: grid; gap: 16px; }
+      .section { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+      .section h2 { margin: 0 0 10px; font-size: 1rem; }
+      .hint { font-size: 0.85rem; color: var(--muted); }
+      .top-actions { display: grid; gap: 10px; }
+      .cache-note { padding: 10px 12px; border: 1px solid #ddd0bd; background: #faf6ef; border-radius: 10px; font-size: 0.9rem; }
+      .field { display: grid; gap: 6px; }
+      .field + .field { margin-top: 10px; }
+      .field label { font-size: 0.9rem; font-weight: 700; }
+      .field input, .field select {
+        width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fff; font: inherit;
       }
-
-      p {
-        margin: 0;
-        color: var(--muted);
-      }
-
-      form {
-        margin-top: 18px;
-        display: grid;
-        gap: 16px;
-      }
-
-      .layout {
-        display: grid;
-        grid-template-columns: 430px minmax(0, 1fr);
-        gap: 20px;
-        align-items: start;
-      }
-
-      .column {
-        display: grid;
-        gap: 16px;
-      }
-
-      .section {
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 14px;
-      }
-
-      .section h2 {
-        margin: 0 0 10px;
-        font-size: 1rem;
-      }
-
-      .hint {
-        font-size: 0.85rem;
-        color: var(--muted);
-      }
-
-      .field {
-        display: grid;
-        gap: 6px;
-      }
-
-      .field + .field {
-        margin-top: 10px;
-      }
-
-      .field label {
-        font-size: 0.9rem;
-        font-weight: 700;
-      }
-
-      .field input,
-      .field select {
-        width: 100%;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 10px 12px;
-        background: #fff;
-        font: inherit;
-      }
-
-      input[type="file"] {
-        border: 1px dashed var(--line);
-        border-radius: 12px;
-        padding: 14px;
-        background: #fff;
-      }
-
-      .pipeline-list {
-        display: grid;
-        gap: 12px;
-      }
-
-      .stage-card {
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: var(--soft);
-        padding: 12px;
-      }
-
-      .stage-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        margin-bottom: 10px;
-      }
-
-      .stage-title {
-        font-weight: 700;
-        font-size: 0.95rem;
-      }
-
-      .toggle {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 0.85rem;
-      }
-
-      .toggle input {
-        width: auto;
-        margin: 0;
-      }
-
-      .params-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-      }
-
-      .params-grid .field {
-        margin: 0;
-      }
-
-      .field small {
-        color: var(--muted);
-        font-size: 0.75rem;
-      }
-
+      input[type="file"] { border: 1px dashed var(--line); border-radius: 12px; padding: 14px; background: #fff; }
+      .pipeline-list { display: grid; gap: 12px; }
+      .stage-card { border: 1px solid var(--line); border-radius: 12px; background: var(--soft); padding: 12px; }
+      .stage-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+      .stage-title { font-weight: 700; font-size: 0.95rem; }
+      .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+      .toggle input { width: auto; margin: 0; }
+      .params-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .params-grid .field { margin: 0; }
+      .field small { color: var(--muted); font-size: 0.75rem; }
+      .field.is-disabled { opacity: 0.45; }
+      .field.is-disabled input { background: #f5f1ea; cursor: not-allowed; }
       button {
-        border: 0;
-        border-radius: 999px;
-        padding: 12px 16px;
-        font-weight: 700;
-        cursor: pointer;
-        background: var(--accent);
-        color: var(--accent-ink);
-        width: 100%;
+        border: 0; border-radius: 999px; padding: 12px 16px; font-weight: 700; cursor: pointer; background: var(--accent); color: var(--accent-ink); width: 100%;
       }
-
-      .error {
-        border-radius: 12px;
-        padding: 12px 14px;
-        background: #fff1ec;
-        border: 1px solid #efc5b6;
-        color: #822e10;
+      .error { border-radius: 12px; padding: 12px 14px; background: #fff1ec; border: 1px solid #efc5b6; color: #822e10; }
+      .image-grid, .thumb-grid, .meta-grid { display: grid; gap: 16px; }
+      .image-grid.stack-horizontal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .image-grid.stack-vertical { grid-template-columns: 1fr; }
+      .thumb-grid.stack-horizontal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .thumb-grid.stack-vertical { grid-template-columns: 1fr; }
+      .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .image-card, .meta-card, .thumb-card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+      .image-card h3, .meta-card h3 { margin: 0 0 8px; font-size: 0.95rem; }
+      .thumb-card h4 { margin: 0 0 8px; font-size: 0.9rem; }
+      .image-card img, .thumb-card img {
+        display: block; width: 100%; height: auto; border-radius: 8px; border: 1px solid #eee6da; background: linear-gradient(45deg, #f6f0e6, #fff);
       }
-
-      .pill {
-        display: inline-block;
-        border-radius: 999px;
-        border: 1px solid #dfd4c3;
-        background: #fbf8f2;
-        padding: 4px 10px;
-        font-size: 0.85rem;
-      }
-
-      .image-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
-      }
-
-      .image-card {
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 12px;
-      }
-
-      .image-card h3 {
-        margin: 0 0 8px;
-        font-size: 0.95rem;
-      }
-
-      .image-card img {
-        display: block;
-        width: 100%;
-        height: auto;
-        border-radius: 8px;
-        border: 1px solid #eee6da;
-        background: linear-gradient(45deg, #f6f0e6, #fff);
-      }
-
-      .meta-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
-      }
-
-      .meta-card {
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 12px;
-      }
-
-      .meta-card h3 {
-        margin: 0 0 8px;
-        font-size: 0.95rem;
-      }
-
-      dl {
-        margin: 0;
-        display: grid;
-        grid-template-columns: max-content 1fr;
-        gap: 8px 12px;
-      }
-
-      dt {
-        font-weight: 700;
-      }
-
-      dd {
-        margin: 0;
-      }
-
-      .step-list {
-        margin: 0;
-        padding-left: 1.2rem;
-        display: grid;
-        gap: 8px;
-      }
-
-      .step-item {
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 10px;
-      }
-
-      .step-item strong {
-        display: block;
-        margin-bottom: 4px;
-      }
-
-      .step-item .mini {
-        color: var(--muted);
-        font-size: 0.85rem;
-      }
-
-      .thumb-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-
-      .thumb-card {
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 10px;
-      }
-
-      .thumb-card h4 {
-        margin: 0 0 8px;
-        font-size: 0.9rem;
-      }
-
-      .thumb-card img {
-        width: 100%;
-        height: auto;
-        display: block;
-        border-radius: 8px;
-        border: 1px solid #eee6da;
-      }
-
-      .thumb-card p {
-        margin-top: 8px;
-        font-size: 0.8rem;
-      }
-
+      dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 8px 12px; }
+      dt { font-weight: 700; }
+      dd { margin: 0; }
+      .step-list { margin: 0; padding-left: 1.2rem; display: grid; gap: 8px; }
+      .step-item { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+      .step-item strong { display: block; margin-bottom: 4px; }
+      .step-item .mini { color: var(--muted); font-size: 0.85rem; }
+      .thumb-card p { margin-top: 8px; font-size: 0.8rem; }
       @media (max-width: 980px) {
-        .layout {
-          grid-template-columns: 1fr;
-        }
-
-        .image-grid,
-        .meta-grid,
-        .thumb-grid,
-        .params-grid {
-          grid-template-columns: 1fr;
-        }
+        .layout { grid-template-columns: 1fr; }
+        .image-grid, .meta-grid, .thumb-grid, .params-grid { grid-template-columns: 1fr !important; }
       }
     </style>
   </head>
   <body>
     <main class="panel">
       <h1>OpenCV 基本処理パイプライン検証 GUI</h1>
-      <p>
-        色相・コントラスト・ガンマ変換などの基本処理を、複数段のパイプラインとして順番に適用して見え方を確認できます。
-        既存のエッジ検出系の処理は、コード内には残したまま現在の画面からは外しています。
-      </p>
+      <p>色相・コントラスト・ガンマ変換などの基本処理を、複数段のパイプラインとして順番に適用して見え方を確認できます。</p>
 
       <form action="/process" method="post" enctype="multipart/form-data">
-        {% if error %}
-        <div class="error">{{ error }}</div>
-        {% endif %}
+        {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
         <div class="layout">
           <section class="column">
             <div class="section">
               <h2>入力画像</h2>
               <div class="field">
-                <label for="image">画像ファイル</label>
+                <label for="image">画像ファイル（新しい画像を選ぶと置き換え）</label>
                 <input id="image" type="file" name="image" accept="image/*" />
+              </div>
+              {% if has_cached_image %}
+              <div class="cache-note">前回画像を保持中: <strong>{{ cached_filename }}</strong>（未選択で実行するとこれを再利用）</div>
+              {% endif %}
+              <div class="top-actions">
+                <button type="submit">パイプラインを実行</button>
               </div>
             </div>
 
             <div class="section">
               <h2>パイプライン（最大 {{ pipeline_stages|length }} 段）</h2>
-              <p class="hint">
-                各ステージは有効/無効を切り替えできます。選択中の処理に関係ないパラメータは無視されます。
-              </p>
-
+              <p class="hint">各ステージは有効/無効を切り替えできます。使用する処理のパラメータだけ編集可能になります。</p>
               <div class="pipeline-list">
                 {% for stage in pipeline_stages %}
-                <div class="stage-card">
+                <div class="stage-card" data-stage-card>
                   <div class="stage-header">
                     <div class="stage-title">Stage {{ stage.index }}</div>
                     <label class="toggle">
-                      <input type="checkbox" name="{{ stage.prefix }}_enabled" {% if stage.enabled %}checked{% endif %} />
-                      有効
+                      <input type="checkbox" name="{{ stage.prefix }}_enabled" data-stage-enabled {% if stage.enabled %}checked{% endif %} />有効
                     </label>
                   </div>
-
                   <div class="field">
                     <label for="{{ stage.prefix }}_operation">処理</label>
-                    <select id="{{ stage.prefix }}_operation" name="{{ stage.prefix }}_operation">
+                    <select id="{{ stage.prefix }}_operation" name="{{ stage.prefix }}_operation" data-stage-operation>
                       {% for value, label in pipeline_operation_options %}
                       <option value="{{ value }}" {% if stage.operation == value %}selected{% endif %}>{{ label }}</option>
                       {% endfor %}
                     </select>
                   </div>
-
                   <div class="params-grid">
-                    <div class="field">
-                      <label for="{{ stage.prefix }}_brightness">明るさ</label>
-                      <input id="{{ stage.prefix }}_brightness" type="number" name="{{ stage.prefix }}_brightness" min="-255" max="255" value="{{ stage.brightness }}" />
-                      <small>`brightness` 用</small>
-                    </div>
-
-                    <div class="field">
-                      <label for="{{ stage.prefix }}_contrast">コントラスト倍率</label>
-                      <input id="{{ stage.prefix }}_contrast" type="number" step="0.1" min="0.1" max="4.0" name="{{ stage.prefix }}_contrast" value="{{ stage.contrast }}" />
-                      <small>`contrast` 用</small>
-                    </div>
-
-                    <div class="field">
-                      <label for="{{ stage.prefix }}_gamma">ガンマ値</label>
-                      <input id="{{ stage.prefix }}_gamma" type="number" step="0.1" min="0.1" max="5.0" name="{{ stage.prefix }}_gamma" value="{{ stage.gamma }}" />
-                      <small>`gamma` 用</small>
-                    </div>
-
-                    <div class="field">
-                      <label for="{{ stage.prefix }}_hue_deg">色相シフト（度）</label>
-                      <input id="{{ stage.prefix }}_hue_deg" type="number" min="-180" max="180" name="{{ stage.prefix }}_hue_deg" value="{{ stage.hue_deg }}" />
-                      <small>`hue_shift` 用</small>
-                    </div>
-
-                    <div class="field">
-                      <label for="{{ stage.prefix }}_saturation_percent">彩度（%）</label>
-                      <input id="{{ stage.prefix }}_saturation_percent" type="number" min="0" max="300" name="{{ stage.prefix }}_saturation_percent" value="{{ stage.saturation_percent }}" />
-                      <small>`saturation` 用</small>
-                    </div>
-
-                    <div class="field">
-                      <label for="{{ stage.prefix }}_blur_kernel">ぼかしカーネル（奇数）</label>
-                      <input id="{{ stage.prefix }}_blur_kernel" type="number" min="1" max="99" name="{{ stage.prefix }}_blur_kernel" value="{{ stage.blur_kernel }}" />
-                      <small>`gaussian_blur` 用</small>
-                    </div>
+                    <div class="field" data-param-field="brightness"><label for="{{ stage.prefix }}_brightness">明るさ</label><input id="{{ stage.prefix }}_brightness" type="number" name="{{ stage.prefix }}_brightness" min="-255" max="255" value="{{ stage.brightness }}" /><small>`brightness` 用</small></div>
+                    <div class="field" data-param-field="contrast"><label for="{{ stage.prefix }}_contrast">コントラスト倍率</label><input id="{{ stage.prefix }}_contrast" type="number" step="0.1" min="0.1" max="4.0" name="{{ stage.prefix }}_contrast" value="{{ stage.contrast }}" /><small>`contrast` 用</small></div>
+                    <div class="field" data-param-field="gamma"><label for="{{ stage.prefix }}_gamma">ガンマ値</label><input id="{{ stage.prefix }}_gamma" type="number" step="0.1" min="0.1" max="5.0" name="{{ stage.prefix }}_gamma" value="{{ stage.gamma }}" /><small>`gamma` 用</small></div>
+                    <div class="field" data-param-field="hue_deg"><label for="{{ stage.prefix }}_hue_deg">色相シフト（度）</label><input id="{{ stage.prefix }}_hue_deg" type="number" min="-180" max="180" name="{{ stage.prefix }}_hue_deg" value="{{ stage.hue_deg }}" /><small>`hue_shift` 用</small></div>
+                    <div class="field" data-param-field="saturation_percent"><label for="{{ stage.prefix }}_saturation_percent">彩度（%）</label><input id="{{ stage.prefix }}_saturation_percent" type="number" min="0" max="300" name="{{ stage.prefix }}_saturation_percent" value="{{ stage.saturation_percent }}" /><small>`saturation` 用</small></div>
+                    <div class="field" data-param-field="blur_kernel"><label for="{{ stage.prefix }}_blur_kernel">ぼかしカーネル（奇数）</label><input id="{{ stage.prefix }}_blur_kernel" type="number" min="1" max="99" name="{{ stage.prefix }}_blur_kernel" value="{{ stage.blur_kernel }}" /><small>`gaussian_blur` 用</small></div>
                   </div>
                 </div>
                 {% endfor %}
               </div>
             </div>
-
-            <button type="submit">パイプラインを実行</button>
           </section>
 
           <section class="column">
             <div class="section">
               <h2>結果プレビュー</h2>
               {% if result %}
-              <div class="image-grid">
-                <div class="image-card">
-                  <h3>原画像</h3>
-                  <img src="{{ result.original_src }}" alt="原画像プレビュー" />
-                </div>
-                <div class="image-card">
-                  <h3>最終結果</h3>
-                  <img src="{{ result.final_src }}" alt="パイプライン処理後画像プレビュー" />
-                </div>
+              <div class="image-grid {{ result.preview_layout_class }}">
+                <div class="image-card"><h3>原画像</h3><img src="{{ result.original_src }}" alt="原画像プレビュー" /></div>
+                <div class="image-card"><h3>最終結果</h3><img src="{{ result.final_src }}" alt="パイプライン処理後画像プレビュー" /></div>
               </div>
+              {% if result.used_cached_image %}<p class="hint" style="margin-top:10px;">前回アップロード画像を再利用して実行しました。</p>{% endif %}
               {% else %}
               <p class="hint">画像をアップロードしてパイプラインを実行すると、ここに結果が表示されます。</p>
               {% endif %}
@@ -447,18 +173,7 @@
               {% if result.executed_steps %}
               <ol class="step-list">
                 {% for step in result.executed_steps %}
-                <li class="step-item">
-                  <strong>Stage {{ step.index }}: {{ step.label }}</strong>
-                  {% if step.info %}
-                  <div class="mini">
-                    {% for key, value in step.info.items() %}
-                    {{ key }}={{ value }}{% if not loop.last %}, {% endif %}
-                    {% endfor %}
-                  </div>
-                  {% else %}
-                  <div class="mini">追加パラメータなし</div>
-                  {% endif %}
-                </li>
+                <li class="step-item"><strong>Stage {{ step.index }}: {{ step.label }}</strong>{% if step.info %}<div class="mini">{% for key, value in step.info.items() %}{{ key }}={{ value }}{% if not loop.last %}, {% endif %}{% endfor %}</div>{% else %}<div class="mini">追加パラメータなし</div>{% endif %}</li>
                 {% endfor %}
               </ol>
               {% else %}
@@ -469,14 +184,12 @@
             <div class="section">
               <h2>途中結果（各ステージ後）</h2>
               {% if result.stage_previews %}
-              <div class="thumb-grid">
+              <div class="thumb-grid {{ result.stage_layout_class }}">
                 {% for step in result.stage_previews %}
                 <div class="thumb-card">
                   <h4>Stage {{ step.index }}: {{ step.label }}</h4>
                   <img src="{{ step.src }}" alt="Stage {{ step.index }} の処理結果" />
-                  <p>
-                    {{ step.image_info.size }} / ch={{ step.image_info.channels }} / {{ step.image_info.dtype }}
-                  </p>
+                  <p>{{ step.image_info.size }} / ch={{ step.image_info.channels }} / {{ step.image_info.dtype }}</p>
                 </div>
                 {% endfor %}
               </div>
@@ -491,21 +204,14 @@
                 <div class="meta-card">
                   <h3>原画像</h3>
                   <dl>
-                    <dt>ファイル名</dt>
-                    <dd>{{ result.filename }}</dd>
-                    {% for key, value in result.original_info.items() %}
-                    <dt>{{ key }}</dt>
-                    <dd>{{ value }}</dd>
-                    {% endfor %}
+                    <dt>ファイル名</dt><dd>{{ result.filename }}</dd>
+                    {% for key, value in result.original_info.items() %}<dt>{{ key }}</dt><dd>{{ value }}</dd>{% endfor %}
                   </dl>
                 </div>
                 <div class="meta-card">
                   <h3>最終結果</h3>
                   <dl>
-                    {% for key, value in result.final_info.items() %}
-                    <dt>{{ key }}</dt>
-                    <dd>{{ value }}</dd>
-                    {% endfor %}
+                    {% for key, value in result.final_info.items() %}<dt>{{ key }}</dt><dd>{{ value }}</dd>{% endfor %}
                   </dl>
                 </div>
               </div>
@@ -515,5 +221,34 @@
         </div>
       </form>
     </main>
+
+    <script>
+      (() => {
+        const usage = {{ pipeline_param_usage | tojson }};
+        const stageCards = document.querySelectorAll('[data-stage-card]');
+
+        const updateStageCard = (card) => {
+          const enabled = card.querySelector('[data-stage-enabled]')?.checked ?? false;
+          const operation = card.querySelector('[data-stage-operation]')?.value;
+          const activeParams = new Set((usage[operation] || []));
+
+          card.querySelectorAll('[data-param-field]').forEach((field) => {
+            const param = field.getAttribute('data-param-field');
+            const input = field.querySelector('input, select, textarea');
+            const editable = enabled && activeParams.has(param);
+            field.classList.toggle('is-disabled', !editable);
+            if (input) input.disabled = !editable;
+          });
+        };
+
+        stageCards.forEach((card) => {
+          const enabled = card.querySelector('[data-stage-enabled]');
+          const operation = card.querySelector('[data-stage-operation]');
+          enabled?.addEventListener('change', () => updateStageCard(card));
+          operation?.addEventListener('change', () => updateStageCard(card));
+          updateStageCard(card);
+        });
+      })();
+    </script>
   </body>
 </html>
