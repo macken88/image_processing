@@ -266,7 +266,7 @@
     <main class="panel">
       <h1>OpenCV 前処理 + 本解析 検証 GUI</h1>
       <p>
-        4段までの前処理パイプラインの後に、本解析（エッジ検出 / 二値化 / Hough線 / Hough円）を1つ選んで実行し、
+        4段までの前処理パイプラインの後に、本解析（Canny / Sobel / Hough線 / Hough円）を1つ選んで実行し、
         前処理パラメータが解析結果に与える影響を手動で確認できます。
       </p>
 
@@ -347,6 +347,30 @@
                         <input id="{{ stage.prefix }}_blur_kernel" type="number" min="1" max="99" name="{{ stage.prefix }}_blur_kernel" value="{{ stage.blur_kernel }}" />
                         <small>`gaussian_blur` 用</small>
                       </div>
+                      <div class="field" data-param-field="threshold_mode">
+                        <label for="{{ stage.prefix }}_threshold_mode">二値化モード</label>
+                        <select id="{{ stage.prefix }}_threshold_mode" name="{{ stage.prefix }}_threshold_mode" data-stage-threshold-mode>
+                          {% for value, label in threshold_mode_options %}
+                          <option value="{{ value }}" {% if stage.threshold_mode == value %}selected{% endif %}>{{ label }}</option>
+                          {% endfor %}
+                        </select>
+                        <small>`threshold` 用</small>
+                      </div>
+                      <div class="field" data-param-field="threshold_value">
+                        <label for="{{ stage.prefix }}_threshold_value">固定閾値（0-255）</label>
+                        <input id="{{ stage.prefix }}_threshold_value" type="number" min="0" max="255" name="{{ stage.prefix }}_threshold_value" value="{{ stage.threshold_value }}" />
+                        <small>`threshold` 固定閾値用</small>
+                      </div>
+                      <div class="field" data-param-field="adaptive_block_size">
+                        <label for="{{ stage.prefix }}_adaptive_block_size">適応的 block size（奇数）</label>
+                        <input id="{{ stage.prefix }}_adaptive_block_size" type="number" min="3" max="99" name="{{ stage.prefix }}_adaptive_block_size" value="{{ stage.adaptive_block_size }}" />
+                        <small>`threshold` 適応的用</small>
+                      </div>
+                      <div class="field" data-param-field="adaptive_c">
+                        <label for="{{ stage.prefix }}_adaptive_c">適応的 C 値</label>
+                        <input id="{{ stage.prefix }}_adaptive_c" type="number" min="-50" max="50" name="{{ stage.prefix }}_adaptive_c" value="{{ stage.adaptive_c }}" />
+                        <small>`threshold` 適応的用</small>
+                      </div>
                     </div>
                   </details>
                 </div>
@@ -379,30 +403,10 @@
                     <input id="canny_high" type="number" name="canny_high" min="1" max="500" value="{{ analysis_settings.canny_high }}" />
                     <small>`edge_canny` 用</small>
                   </div>
-
-                  <div class="field" data-analysis-param-field="threshold_mode">
-                    <label for="threshold_mode">二値化モード</label>
-                    <select id="threshold_mode" name="threshold_mode" data-threshold-mode>
-                      {% for value, label in threshold_mode_options %}
-                      <option value="{{ value }}" {% if analysis_settings.threshold_mode == value %}selected{% endif %}>{{ label }}</option>
-                      {% endfor %}
-                    </select>
-                    <small>`threshold` 用</small>
-                  </div>
-                  <div class="field" data-analysis-param-field="threshold_value">
-                    <label for="threshold_value">固定閾値（0-255）</label>
-                    <input id="threshold_value" type="number" name="threshold_value" min="0" max="255" value="{{ analysis_settings.threshold_value }}" />
-                    <small>`threshold` 固定閾値用</small>
-                  </div>
-                  <div class="field" data-analysis-param-field="adaptive_block_size">
-                    <label for="adaptive_block_size">適応的 block size（奇数）</label>
-                    <input id="adaptive_block_size" type="number" name="adaptive_block_size" min="3" max="99" value="{{ analysis_settings.adaptive_block_size }}" />
-                    <small>`threshold` 適応的用</small>
-                  </div>
-                  <div class="field" data-analysis-param-field="adaptive_c">
-                    <label for="adaptive_c">適応的 C 値</label>
-                    <input id="adaptive_c" type="number" name="adaptive_c" min="-50" max="50" value="{{ analysis_settings.adaptive_c }}" />
-                    <small>`threshold` 適応的用</small>
+                  <div class="field" data-analysis-param-field="sobel_ksize">
+                    <label for="sobel_ksize">Sobel カーネルサイズ（奇数）</label>
+                    <input id="sobel_ksize" type="number" name="sobel_ksize" min="1" max="31" value="{{ analysis_settings.sobel_ksize }}" />
+                    <small>`edge_sobel` 用</small>
                   </div>
 
                   <div class="field" data-analysis-param-field="line_canny_low">
@@ -638,68 +642,60 @@
         const thresholdModeUsage = {{ threshold_mode_param_usage | tojson }};
 
         const pipelineStageCards = document.querySelectorAll('[data-stage-card]');
+        const pipelineThresholdSpecificParams = new Set(['threshold_value', 'adaptive_block_size', 'adaptive_c']);
+        const setFieldEditable = (field, editable) => {
+          const input = field.querySelector('input, select, textarea');
+          field.classList.toggle('is-disabled', !editable);
+          if (input) input.disabled = !editable;
+        };
 
         const updatePipelineStageCard = (card) => {
           const enabled = card.querySelector('[data-stage-enabled]')?.checked ?? false;
           const operation = card.querySelector('[data-stage-operation]')?.value;
+          const thresholdMode = card.querySelector('[data-stage-threshold-mode]')?.value ?? 'fixed';
           const activeParams = new Set(pipelineUsage[operation] || []);
+          const activeThresholdModeParams = new Set(thresholdModeUsage[thresholdMode] || []);
 
           card.querySelectorAll('[data-param-field]').forEach((field) => {
             const param = field.getAttribute('data-param-field');
-            const input = field.querySelector('input, select, textarea');
-            const editable = enabled && activeParams.has(param);
-            field.classList.toggle('is-disabled', !editable);
-            if (input) input.disabled = !editable;
+            let editable = enabled && activeParams.has(param);
+            if (operation === 'threshold' && pipelineThresholdSpecificParams.has(param)) {
+              editable = enabled && activeThresholdModeParams.has(param);
+            }
+            if (operation !== 'threshold' && pipelineThresholdSpecificParams.has(param)) {
+              editable = false;
+            }
+            setFieldEditable(field, editable);
           });
         };
 
         pipelineStageCards.forEach((card) => {
           const enabled = card.querySelector('[data-stage-enabled]');
           const operation = card.querySelector('[data-stage-operation]');
+          const stageThresholdMode = card.querySelector('[data-stage-threshold-mode]');
           enabled?.addEventListener('change', () => updatePipelineStageCard(card));
           operation?.addEventListener('change', () => updatePipelineStageCard(card));
+          stageThresholdMode?.addEventListener('change', () => updatePipelineStageCard(card));
           updatePipelineStageCard(card);
         });
 
         const analysisRoot = document.querySelector('[data-analysis-settings]');
         const analysisTypeSelect = analysisRoot?.querySelector('[data-analysis-type]');
-        const thresholdModeSelect = analysisRoot?.querySelector('[data-threshold-mode]');
-        const thresholdSpecificParams = new Set(['threshold_value', 'adaptive_block_size', 'adaptive_c']);
-
-        const setAnalysisFieldEditable = (field, editable) => {
-          const input = field.querySelector('input, select, textarea');
-          field.classList.toggle('is-disabled', !editable);
-          if (input) input.disabled = !editable;
-        };
 
         const updateAnalysisFields = () => {
           if (!analysisRoot || !analysisTypeSelect) return;
 
           const analysisType = analysisTypeSelect.value;
-          const thresholdMode = thresholdModeSelect ? thresholdModeSelect.value : 'fixed';
           const activeByType = new Set(analysisUsage[analysisType] || []);
-          const activeByThresholdMode = new Set(thresholdModeUsage[thresholdMode] || []);
 
           analysisRoot.querySelectorAll('[data-analysis-param-field]').forEach((field) => {
             const param = field.getAttribute('data-analysis-param-field');
-            let editable = activeByType.has(param);
-
-            // For threshold analysis, enable only the parameter subset needed by the chosen threshold mode.
-            if (analysisType === 'threshold' && thresholdSpecificParams.has(param)) {
-              editable = activeByThresholdMode.has(param);
-            }
-
-            // For non-threshold analyses, all threshold-specific params must stay disabled.
-            if (analysisType !== 'threshold' && thresholdSpecificParams.has(param)) {
-              editable = false;
-            }
-
-            setAnalysisFieldEditable(field, editable);
+            const editable = activeByType.has(param);
+            setFieldEditable(field, editable);
           });
         };
 
         analysisTypeSelect?.addEventListener('change', updateAnalysisFields);
-        thresholdModeSelect?.addEventListener('change', updateAnalysisFields);
         updateAnalysisFields();
       })();
     </script>

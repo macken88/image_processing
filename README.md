@@ -1,7 +1,7 @@
 ## Image Processing GUI (Flask + uv + OpenCV)
 
 ローカル環境で画像処理GUIアプリを開発するための最小構成です。
-現在は OpenCV ベースの前処理 + 本解析（エッジ/二値化/Hough）検証たたき台になっています。
+現在は OpenCV ベースの前処理 + 本解析（Canny/Sobel/Hough）検証たたき台になっています。
 
 ### セットアップ
 
@@ -32,11 +32,12 @@ uv run python main.py
   - 色相シフト
   - 彩度調整
   - ガウシアンぼかし
+  - 二値化（固定閾値 / Otsu / 適応的）
   - グレースケール
   - 反転
 - 実装済みの本解析（v1）
   - エッジ検出（Canny）
-  - 二値化（固定閾値 / Otsu / 適応的）
+  - エッジ検出（Sobel）
   - Hough 線検出（確率的）
   - Hough 円検出
 - 画像を再選択しなくても、前回アップロード画像を再利用して前処理/本解析を再実行可能
@@ -55,6 +56,11 @@ uv run python main.py
   - `saturation_percent`: 彩度倍率（`100` で変化なし、`0` で無彩色）
 - ガウシアンぼかし（`gaussian_blur`）
   - `blur_kernel`: カーネルサイズ（奇数、内部で奇数に補正）
+- 二値化（`threshold`）
+  - `threshold_mode`: 二値化モード（`fixed` / `otsu` / `adaptive_gaussian`）
+  - `threshold_value`: 固定閾値（`threshold_mode=fixed` で使用）
+  - `adaptive_block_size`: 適応的二値化の近傍サイズ（奇数、`adaptive_gaussian` で使用）
+  - `adaptive_c`: 適応的二値化の補正値（`adaptive_gaussian` で使用）
 - グレースケール（`grayscale`）
   - パラメータなし
 - 反転（`invert`）
@@ -66,11 +72,8 @@ uv run python main.py
   - `canny_low`: Canny の低閾値
   - `canny_high`: Canny の高閾値（`low` より大きくなるよう補正）
 
-- 二値化（`threshold`）
-  - `threshold_mode`: 二値化モード（`fixed` / `otsu` / `adaptive_gaussian`）
-  - `threshold_value`: 固定閾値（`threshold_mode=fixed` で使用）
-  - `adaptive_block_size`: 適応的二値化の近傍サイズ（奇数、`adaptive_gaussian` で使用）
-  - `adaptive_c`: 適応的二値化の補正値（`adaptive_gaussian` で使用）
+- エッジ検出（Sobel / `edge_sobel`）
+  - `sobel_ksize`: Sobel カーネルサイズ（奇数）
 
 - Hough 線検出（`hough_lines`）
   - `line_canny_low`: 線検出前の Canny 低閾値

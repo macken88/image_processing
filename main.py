@@ -30,6 +30,7 @@ PIPELINE_OPERATION_OPTIONS = [
     ("hue_shift", "色相シフト"),
     ("saturation", "彩度調整"),
     ("gaussian_blur", "ガウシアンぼかし"),
+    ("threshold", "二値化"),
     ("grayscale", "グレースケール"),
     ("invert", "反転"),
 ]
@@ -41,13 +42,14 @@ PIPELINE_PARAM_USAGE = {
     "hue_shift": {"hue_deg"},
     "saturation": {"saturation_percent"},
     "gaussian_blur": {"blur_kernel"},
+    "threshold": {"threshold_mode", "threshold_value", "adaptive_block_size", "adaptive_c"},
     "grayscale": set(),
     "invert": set(),
 }
 
 ANALYSIS_OPTIONS = [
     ("edge_canny", "エッジ検出（Canny）"),
-    ("threshold", "二値化"),
+    ("edge_sobel", "エッジ検出（Sobel）"),
     ("hough_lines", "Hough 線検出（確率的）"),
     ("hough_circles", "Hough 円検出"),
 ]
@@ -60,7 +62,7 @@ THRESHOLD_MODE_OPTIONS = [
 THRESHOLD_MODE_LABELS = dict(THRESHOLD_MODE_OPTIONS)
 ANALYSIS_PARAM_USAGE = {
     "edge_canny": {"canny_low", "canny_high"},
-    "threshold": {"threshold_mode", "threshold_value", "adaptive_block_size", "adaptive_c"},
+    "edge_sobel": {"sobel_ksize"},
     "hough_lines": {
         "line_canny_low",
         "line_canny_high",
@@ -127,6 +129,10 @@ def default_pipeline_stage_values(stage_index: int) -> dict[str, int | float | s
         "hue_deg": 0,
         "saturation_percent": 100,
         "blur_kernel": 5,
+        "threshold_mode": "fixed",
+        "threshold_value": 128,
+        "adaptive_block_size": 11,
+        "adaptive_c": 2,
     }
 
 
@@ -139,10 +145,7 @@ def default_analysis_settings() -> dict[str, int | float | str]:
         "analysis_type": "edge_canny",
         "canny_low": 80,
         "canny_high": 160,
-        "threshold_mode": "fixed",
-        "threshold_value": 128,
-        "adaptive_block_size": 11,
-        "adaptive_c": 2,
+        "sobel_ksize": 3,
         "line_canny_low": 80,
         "line_canny_high": 160,
         "hough_threshold": 50,
@@ -247,6 +250,40 @@ def format_ratio(value: float) -> str:
     return f"{value:.4f} ({value * 100:.2f}%)"
 
 
+def apply_threshold_mode(
+    gray: np.ndarray,
+    *,
+    mode: str,
+    threshold_value: int,
+    adaptive_block_size: int,
+    adaptive_c: int,
+) -> tuple[np.ndarray, dict[str, str]]:
+    params: dict[str, str] = {"threshold_mode": THRESHOLD_MODE_LABELS[mode]}
+
+    if mode == "fixed":
+        used_threshold, binary = cv2.threshold(gray, threshold_value, 255, cv2.THRESH_BINARY)
+        params["threshold_value"] = str(threshold_value)
+        params["used_threshold"] = f"{used_threshold:.2f}"
+        return binary, params
+
+    if mode == "otsu":
+        used_threshold, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        params["used_threshold"] = f"{used_threshold:.2f}"
+        return binary, params
+
+    binary = cv2.adaptiveThreshold(
+        gray,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        adaptive_block_size,
+        adaptive_c,
+    )
+    params["adaptive_block_size"] = str(adaptive_block_size)
+    params["adaptive_c"] = str(adaptive_c)
+    return binary, params
+
+
 # Legacy single-process executor (kept for later reintroduction)
 def apply_process(image: np.ndarray, params: dict[str, int | str]) -> tuple[np.ndarray, dict[str, str]]:
     process_type = str(params["process_type"])
@@ -346,6 +383,33 @@ def parse_pipeline_stages(form) -> list[dict[str, int | float | str | bool]]:
             parse_int(form, f"{prefix}_blur_kernel", int(stage["blur_kernel"]), min_value=1, max_value=99),
             minimum=1,
         )
+        stage["threshold_mode"] = normalize_threshold_mode(
+            str(form.get(f"{prefix}_threshold_mode", stage["threshold_mode"]))
+        )
+        stage["threshold_value"] = parse_int(
+            form,
+            f"{prefix}_threshold_value",
+            int(stage["threshold_value"]),
+            min_value=0,
+            max_value=255,
+        )
+        stage["adaptive_block_size"] = make_odd(
+            parse_int(
+                form,
+                f"{prefix}_adaptive_block_size",
+                int(stage["adaptive_block_size"]),
+                min_value=3,
+                max_value=99,
+            ),
+            minimum=3,
+        )
+        stage["adaptive_c"] = parse_int(
+            form,
+            f"{prefix}_adaptive_c",
+            int(stage["adaptive_c"]),
+            min_value=-50,
+            max_value=50,
+        )
     return stages
 
 
@@ -362,13 +426,10 @@ def parse_analysis_settings(form) -> dict[str, int | float | str]:
     if int(settings["canny_high"]) <= int(settings["canny_low"]):
         settings["canny_high"] = int(settings["canny_low"]) + 1
 
-    settings["threshold_mode"] = normalize_threshold_mode(str(form.get("threshold_mode", settings["threshold_mode"])))
-    settings["threshold_value"] = parse_int(form, "threshold_value", int(settings["threshold_value"]), min_value=0, max_value=255)
-    settings["adaptive_block_size"] = make_odd(
-        parse_int(form, "adaptive_block_size", int(settings["adaptive_block_size"]), min_value=3, max_value=99),
-        minimum=3,
+    settings["sobel_ksize"] = make_odd(
+        parse_int(form, "sobel_ksize", int(settings["sobel_ksize"]), min_value=1, max_value=31),
+        minimum=1,
     )
-    settings["adaptive_c"] = parse_int(form, "adaptive_c", int(settings["adaptive_c"]), min_value=-50, max_value=50)
 
     settings["line_canny_low"] = parse_int(form, "line_canny_low", int(settings["line_canny_low"]), min_value=0, max_value=500)
     settings["line_canny_high"] = parse_int(form, "line_canny_high", int(settings["line_canny_high"]), min_value=1, max_value=500)
@@ -476,6 +537,21 @@ def apply_pipeline_stage(
         kernel = make_odd(int(stage["blur_kernel"]), minimum=1)
         info["blur_kernel"] = str(kernel)
         return cv2.GaussianBlur(image, (kernel, kernel), 0), info
+    if operation == "threshold":
+        gray = to_gray(image)
+        mode = normalize_threshold_mode(str(stage["threshold_mode"]))
+        threshold_value = int(stage["threshold_value"])
+        adaptive_block_size = make_odd(int(stage["adaptive_block_size"]), minimum=3)
+        adaptive_c = int(stage["adaptive_c"])
+        binary, threshold_info = apply_threshold_mode(
+            gray,
+            mode=mode,
+            threshold_value=threshold_value,
+            adaptive_block_size=adaptive_block_size,
+            adaptive_c=adaptive_c,
+        )
+        info.update(threshold_info)
+        return binary, info
     if operation == "grayscale":
         return to_gray(image), info
     if operation == "invert":
@@ -540,32 +616,47 @@ def analyze_edge_canny(image: np.ndarray, settings: dict[str, int | float | str]
     }
 
 
+def analyze_edge_sobel(image: np.ndarray, settings: dict[str, int | float | str]) -> dict[str, object]:
+    gray = to_gray(image)
+    ksize = make_odd(int(settings["sobel_ksize"]), minimum=1)
+    grad_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=ksize)
+    grad_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=ksize)
+    magnitude = cv2.magnitude(grad_x, grad_y)
+    sobel_edges = cv2.convertScaleAbs(magnitude)
+
+    metrics = compute_ratio_metrics(sobel_edges)
+    status = "no_detection" if metrics["nonzero_pixels"] == 0 else "ok"
+
+    return {
+        "type": "edge_sobel",
+        "label": ANALYSIS_LABELS["edge_sobel"],
+        "status": status,
+        "main_output": sobel_edges,
+        "main_output_label": "Sobel エッジ画像",
+        "debug_outputs": [
+            {"label": "Sobel X", "image": cv2.convertScaleAbs(np.abs(grad_x))},
+            {"label": "Sobel Y", "image": cv2.convertScaleAbs(np.abs(grad_y))},
+        ],
+        "summary": {
+            "nonzero_pixels": str(metrics["nonzero_pixels"]),
+            "edge_pixel_ratio": format_ratio(float(metrics["ratio"])),
+        },
+        "params": {
+            "sobel_ksize": str(ksize),
+        },
+    }
+
+
 def analyze_threshold(image: np.ndarray, settings: dict[str, int | float | str]) -> dict[str, object]:
     gray = to_gray(image)
     mode = str(settings["threshold_mode"])
-    params: dict[str, str] = {"threshold_mode": THRESHOLD_MODE_LABELS[mode]}
-
-    if mode == "fixed":
-        threshold_value = int(settings["threshold_value"])
-        used_threshold, binary = cv2.threshold(gray, threshold_value, 255, cv2.THRESH_BINARY)
-        params["threshold_value"] = str(threshold_value)
-        params["used_threshold"] = f"{used_threshold:.2f}"
-    elif mode == "otsu":
-        used_threshold, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-        params["used_threshold"] = f"{used_threshold:.2f}"
-    else:
-        block_size = int(settings["adaptive_block_size"])
-        c_value = int(settings["adaptive_c"])
-        binary = cv2.adaptiveThreshold(
-            gray,
-            255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY,
-            block_size,
-            c_value,
-        )
-        params["adaptive_block_size"] = str(block_size)
-        params["adaptive_c"] = str(c_value)
+    binary, params = apply_threshold_mode(
+        gray,
+        mode=mode,
+        threshold_value=int(settings["threshold_value"]),
+        adaptive_block_size=int(settings["adaptive_block_size"]),
+        adaptive_c=int(settings["adaptive_c"]),
+    )
 
     white_pixels = int(np.count_nonzero(binary == 255))
     total_pixels = int(binary.size)
@@ -752,8 +843,8 @@ def run_analysis(image: np.ndarray, settings: dict[str, int | float | str]) -> d
     analysis_type = str(settings["analysis_type"])
     if analysis_type == "edge_canny":
         return analyze_edge_canny(image, settings)
-    if analysis_type == "threshold":
-        return analyze_threshold(image, settings)
+    if analysis_type == "edge_sobel":
+        return analyze_edge_sobel(image, settings)
     if analysis_type == "hough_lines":
         return analyze_hough_lines(image, settings)
     if analysis_type == "hough_circles":
