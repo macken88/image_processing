@@ -925,6 +925,7 @@ def process_image():
 
         result = {
             "filename": filename,
+            "filename_stem": Path(filename).stem or filename,
             "used_cached_image": not has_new_upload,
             "submit_action": submit_action,
             "original_src": encode_image_data_url(original),

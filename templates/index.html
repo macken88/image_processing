@@ -153,6 +153,19 @@
         color: var(--accent-ink);
         width: 100%;
       }
+      .button-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        border-radius: 999px;
+        padding: 10px 14px;
+        font-weight: 700;
+        background: #f5efe4;
+        color: var(--ink);
+        border: 1px solid #d9cdb8;
+        width: 100%;
+      }
       .button-secondary {
         background: #f5efe4;
         color: var(--ink);
@@ -197,6 +210,9 @@
       }
       .image-card h3,
       .meta-card h3 { margin: 0 0 8px; font-size: 0.95rem; }
+      .image-card-actions {
+        margin-top: 10px;
+      }
       .thumb-card h4 { margin: 0 0 8px; font-size: 0.9rem; }
       .image-card img,
       .thumb-card img {
@@ -487,6 +503,15 @@
                 <div class="image-card">
                   <h3>前処理結果（本解析入力）</h3>
                   <img src="{{ result.final_src }}" alt="前処理結果プレビュー" />
+                  <div class="image-card-actions">
+                    <a
+                      class="button-link"
+                      href="{{ result.final_src }}"
+                      download="{{ result.filename_stem }}_preprocessed.png"
+                    >
+                      前処理結果を保存
+                    </a>
+                  </div>
                 </div>
                 {% if result.analysis %}
                 <div class="image-card">
@@ -496,6 +521,15 @@
                 <div class="image-card">
                   <h3>{{ result.analysis.main_output_label }}</h3>
                   <img src="{{ result.analysis.main_output_src }}" alt="本解析結果プレビュー" />
+                  <div class="image-card-actions">
+                    <a
+                      class="button-link"
+                      href="{{ result.analysis.main_output_src }}"
+                      download="{{ result.filename_stem }}_analysis.png"
+                    >
+                      本解析結果を保存
+                    </a>
+                  </div>
                 </div>
                 {% endif %}
               </div>
